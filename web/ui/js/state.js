@@ -1,5 +1,34 @@
 const knowledgeFlows = new Set(['knowledge-base', 'chat-with-code', 'doc-generation', 'code-conversion']);
 const modernizationFlows = new Set(['code-conversion']);
+const angularMigrationFlows = new Set([
+  'component-alignment',
+  'state-management',
+  'routing-strategy'
+]);
+
+const migrationConfig = {
+  source: {
+    framework: 'Angular',
+    version: '17',
+    patterns: {
+      stateManagement: 'NgRx',
+      componentArchitecture: 'Standalone Components'
+    }
+  },
+  target: {
+    framework: 'React',
+    version: '18',
+    patterns: {
+      stateManagement: 'Redux Toolkit',
+      componentArchitecture: 'Functional Components with Hooks'
+    }
+  },
+  preferences: {
+    routing: 'React Router',
+    styling: 'CSS Modules',
+    patterns: ['smart-container', 'presentational-components']
+  }
+};
 
 const flowConfig = {
   knowledge: {
@@ -13,7 +42,8 @@ const flowConfig = {
     framework: '',
     runtime: '',
     notes: ''
-  }
+  },
+  migration: migrationConfig
 };
 
 let selectedFlow = null;
@@ -58,8 +88,16 @@ export function getModernizationFlows() {
   return modernizationFlows;
 }
 
+export function getAngularMigrationFlows() {
+  return angularMigrationFlows;
+}
+
 export function getFlowConfig() {
   return flowConfig;
+}
+
+export function getMigrationConfig() {
+  return migrationConfig;
 }
 
 export function setProjectIdentifier(value) {
