@@ -1,0 +1,124 @@
+// File path: internal/workflow/runner_test.go
+package workflow
+
+import (
+	"archive/zip"
+	"context"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/nicodishanthj/Katral_phase1/internal/graph"
+	"github.com/nicodishanthj/Katral_phase1/internal/kb"
+	"github.com/nicodishanthj/Katral_phase1/internal/memory"
+	"github.com/nicodishanthj/Katral_phase1/internal/retriever"
+)
+
+func TestPackageSpringProjectCreatesArchiveAndLogs(t *testing.T) {
+	t.Helper()
+
+	tmp := t.TempDir()
+	store, err := memory.NewStore(filepath.Join(tmp, "docs.jsonl"))
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	retr := retriever.New(nil, nil)
+	mgr := NewManager(store, nil, retr, nil, nil, nil, graph.NoopDependencyService(), nil, nil, nil)
+
+	springDir := filepath.Join(tmp, "spring")
+	if err := os.MkdirAll(filepath.Join(springDir, "src", "main"), 0o755); err != nil {
+		t.Fatalf("mkdir spring dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(springDir, "pom.xml"), []byte("<project/>"), 0o644); err != nil {
+		t.Fatalf("write pom: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(springDir, "src", "main", "App.java"), []byte("class App {}"), 0o644); err != nil {
+		t.Fatalf("write source: %v", err)
+	}
+
+	artifactPath, err := mgr.packageSpringProject(context.Background(), "Proj Example", springDir)
+	if err != nil {
+		t.Fatalf("package spring project: %v", err)
+	}
+	info, err := os.Stat(artifactPath)
+	if err != nil {
+		t.Fatalf("stat artifact: %v", err)
+	}
+	if info.Size() == 0 {
+		t.Fatalf("expected artifact to have content")
+	}
+	base := filepath.Base(artifactPath)
+	if !strings.HasPrefix(base, "proj-example-") || !strings.HasSuffix(base, ".zip") {
+		t.Fatalf("unexpected artifact name %q", base)
+	}
+
+	reader, err := zip.OpenReader(artifactPath)
+	if err != nil {
+		t.Fatalf("open zip: %v", err)
+	}
+	defer reader.Close()
+	files := make(map[string]struct{})
+	for _, f := range reader.File {
+		files[f.Name] = struct{}{}
+	}
+	if _, ok := files["pom.xml"]; !ok {
+		t.Fatalf("expected pom.xml in archive, got %v", files)
+	}
+	if _, ok := files["src/main/App.java"]; !ok {
+		t.Fatalf("expected App.java in archive, got %v", files)
+	}
+
+	logs := mgr.Logs()
+	foundLog := false
+	for _, entry := range logs {
+		if strings.Contains(entry.Message, "Packaged Spring project for project Proj Example") {
+			foundLog = true
+			break
+		}
+	}
+	if !foundLog {
+		t.Fatalf("expected packaging log entry, got %#v", logs)
+	}
+}
+
+func TestPackageConversionDocumentsCreatesArchives(t *testing.T) {
+	t.Helper()
+
+	tmp := t.TempDir()
+	store, err := memory.NewStore(filepath.Join(tmp, "docs.jsonl"))
+	if err != nil {
+		t.Fatalf("new store: %v", err)
+	}
+	retr := retriever.New(nil, nil)
+	mgr := NewManager(store, nil, retr, nil, nil, nil, graph.NoopDependencyService(), nil, nil, nil)
+
+	docs := []kb.Doc{
+		{ID: "PGM1:conv-summary", Program: "PGM1", Type: "conversion_summary", Content: "Summary"},
+		{ID: "PGM1:conv-mapping", Program: "PGM1", Type: "conversion_mapping", Content: "Mapping"},
+		{ID: "PGM1:conv-source", Program: "PGM1", Type: "conversion_source", Content: "Source"},
+	}
+
+	artifacts, err := mgr.packageConversion(context.Background(), "Proj Conv", docs)
+	if err != nil {
+		t.Fatalf("package conversion docs: %v", err)
+	}
+	if len(artifacts) != 3 {
+		t.Fatalf("expected three conversion artifacts, got %d", len(artifacts))
+	}
+	for kind, path := range artifacts {
+		if strings.TrimSpace(path) == "" {
+			t.Fatalf("empty artifact path for %s", kind)
+		}
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Fatalf("stat artifact %s: %v", kind, err)
+		}
+		if info.Size() == 0 {
+			t.Fatalf("expected artifact %s to have content", kind)
+		}
+		if filepath.Ext(path) != ".zip" {
+			t.Fatalf("expected artifact %s to be a zip, got %s", kind, path)
+		}
+	}
+}

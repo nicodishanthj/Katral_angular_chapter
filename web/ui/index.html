@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Katral - Mainframe Modernization chapter.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Katral - Mainframe Modernization chapter.</h1>
+    <span class="visually-hidden">Katral Mainframe Assistant</span>
+  </header>
+  <main>
+    <div class="layout">
+      <aside class="sidebar">
+        <div id="recentProjectsCard" class="sidebar-card" hidden>
+          <h3>Recent Projects</h3>
+          <label for="recentProjectsSelect">Select a project</label>
+          <select id="recentProjectsSelect"></select>
+          <div id="recentProjectInfo" class="progress-summary" style="margin-top:12px;"></div>
+        </div>
+        <div id="runningWorkflowsCard" class="sidebar-card" hidden>
+          <div class="sidebar-badge">Active</div>
+          <h3>Running Workflows</h3>
+          <ul id="runningWorkflowsList" class="running-workflows"></ul>
+        </div>
+        <div id="workflowProgressPane" class="sidebar-card progress-pane" hidden>
+          <div class="sidebar-badge">Workflow</div>
+          <h3>Workflow Progress</h3>
+          <p id="workflowProgressSummary" class="progress-summary">
+            Workflow updates will appear here after kickoff.
+          </p>
+          <ol id="workflowProgressList" class="progress-steps"></ol>
+        </div>
+        <div id="logsCard" class="sidebar-card logs-card">
+          <div class="sidebar-badge">Logs</div>
+          <h3>Server Activity</h3>
+          <p class="progress-summary">Monitor live modernization events. Refresh to fetch the latest entries immediately.</p>
+          <div class="button-group">
+            <button id="logsRefresh" class="button-secondary">Refresh Logs</button>
+          </div>
+          <div id="logsResult" class="log-feed" role="log" aria-live="polite"></div>
+        </div>
+      </aside>
+      <section class="content">
+        <nav class="wizard-nav">
+          <button class="tab active" data-panel="chat" data-step="1">Project Type</button>
+          <button class="tab" data-panel="ingest" data-step="2">Source Intake</button>
+          <button class="tab" data-panel="docs" data-step="3">Documentation</button>
+          <button class="tab" data-panel="artifacts" data-step="4">Artifacts</button>
+          <button class="tab" data-panel="workflow" data-step="5">Workflow</button>
+          <button class="tab" data-panel="agent" data-step="6">Agent Review</button>
+        </nav>
+        <div class="panel-container">
+          <section id="chat" class="panel active">
+            <div class="step-heading">
+              <span>Step 1 &middot; Project Type</span>
+              <h2>Select a Project Focus</h2>
+            </div>
+            <p>Pick the experience that best matches how you want to move forward. Your selection helps tailor the guidance and default workflows in the remaining steps.</p>
+            <div class="selection-grid">
+              <button type="button" class="selection-card" data-option="knowledge-base" data-summary="Build an indexed knowledge repository for the modernization team.">
+                <div class="selection-meta">Discover</div>
+                <h3>Knowledge Base Builder</h3>
+                <p>Curate and structure legacy assets into a unified knowledge base so analysts can explore dependencies with confidence.</p>
+              </button>
+              <button type="button" class="selection-card" data-option="doc-generation" data-summary="Generate deep documentation packages for legacy systems.">
+                <div class="selection-meta">Summarize</div>
+                <h3>Document Generation</h3>
+                <p>Automate high-value documentation such as program overviews, interface maps, and contextual application summaries.</p>
+              </button>
+              <button type="button" class="selection-card" data-option="code-conversion" data-summary="Transform legacy code into modern implementations.">
+                <div class="selection-meta">Transform</div>
+                <h3>Code Conversion</h3>
+                <p>Kick off assisted refactoring to translate COBOL, JCL, and other mainframe technologies into modern target stacks.</p>
+              </button>
+              <button type="button" class="selection-card" data-option="chat-with-code" data-summary="Collaborate with an assistant that can reference indexed code.">
+                <div class="selection-meta">Collaborate</div>
+                <h3>Chat with Code</h3>
+                <p>Ask targeted questions, triage bugs, or explore modernization ideas with Retrieval-Augmented Generation on your source base.</p>
+              </button>
+            </div>
+          </section>
+
+          <section id="ingest" class="panel">
+            <div class="step-heading">
+              <span>Step 2 &middot; Source Intake</span>
+              <h2>Ingest Repository</h2>
+            </div>
+            <p id="flowSelectionSummary" class="selection-summary" hidden></p>
+            <p class="empty-state" id="ingestIntro">Choose a project focus in Step 1 to reveal the configuration required for this intake step.</p>
+            <div id="knowledgeConfigSection" class="config-section" hidden>
+              <h3>Knowledge Base Configuration</h3>
+              <p class="config-help">Point at a source repository or upload files directly to build the knowledge base for discovery and assistance workflows. Technologies are detected automatically from the repo so downstream searches stay aligned.</p>
+              <label for="ingestProject">Project Identifier</label>
+              <input type="text" id="ingestProject" placeholder="project-identifier" />
+              <p class="config-hint">Set a project identifier to associate uploads with downstream workflows.</p>
+              <label for="ingestRepo">Repository Path</label>
+              <input type="text" id="ingestRepo" placeholder="Enter repository path" />
+              <p class="config-hint">Provide the absolute path to the source tree on the assistant host. Leave blank if you plan to upload files instead.</p>
+              <label>Detected Technologies</label>
+              <div id="ingestStacksDisplay" class="tech-badge-list" aria-live="polite"></div>
+              <div id="ingestStacksStatus" class="tech-status" role="status"></div>
+              <label for="ingestCollection">Collection</label>
+              <select id="ingestCollection"></select>
+              <div class="upload-section">
+                <h4>Upload Supplemental Files</h4>
+                <p class="config-help" style="margin-bottom:12px;">Drag and drop large batches of source assets or browse to select files for upload. Leave the repository field blank to load files into a temporary workspace.</p>
+                <div id="ingestDropZone" class="file-drop-zone" tabindex="0" role="button" aria-label="Upload files">
+                  <div>Drop files here or <strong>click to browse</strong>.</div>
+                  <button type="button" class="button-secondary" aria-hidden="true">Select Files</button>
+                  <input type="file" id="ingestFileInput" multiple hidden />
+                </div>
+                <div id="ingestFileList" class="file-list" hidden>
+                  <div id="ingestFileSummary"></div>
+                  <ul id="ingestFileItems"></ul>
+                </div>
+                <div class="upload-actions">
+                  <button type="button" id="ingestUploadButton">Upload Files</button>
+                  <button type="button" id="ingestClearButton" class="button-secondary">Clear Selection</button>
+                </div>
+                <div class="upload-progress" id="ingestUploadProgress" hidden>
+                  <div class="progress-bar" aria-hidden="true">
+                    <div class="progress-bar-fill" id="ingestUploadProgressFill"></div>
+                  </div>
+                </div>
+                <div id="ingestUploadStatus" class="upload-status"></div>
+              </div>
+              <div class="button-group">
+                <button id="ingestButton">Start Ingest</button>
+              </div>
+              <div id="ingestStatus" class="status"></div>
+              <hr />
+              <h3>Search Debug</h3>
+              <label for="searchQuery">Query</label>
+              <input type="text" id="searchQuery" placeholder="total balance" />
+              <div class="button-group">
+                <button id="searchButton" class="button-secondary">Run Vector Search</button>
+              </div>
+              <div id="searchResults" class="result"></div>
+            </div>
+            <div id="targetConfigSection" class="config-section" hidden>
+              <h3>Target Modernization Settings</h3>
+              <p class="config-help">Capture the modernization targets your workflow should pursue. These settings flow into the workflow kickoff so downstream agents understand the runtime expectations.</p>
+              <label for="targetLanguage">Target Language</label>
+              <select id="targetLanguage"></select>
+              <label for="targetVersion">Language Version</label>
+              <select id="targetVersion"></select>
+              <label for="targetFramework">Framework</label>
+              <select id="targetFramework"></select>
+              <label for="targetRuntime">Runtime / Platform</label>
+              <select id="targetRuntime"></select>
+              <label for="targetNotes">Additional Notes</label>
+              <textarea id="targetNotes" placeholder="List integrations, packaging requirements, or modernization guardrails..."></textarea>
+              <div class="button-group">
+                <button id="targetConfigApply" class="button-secondary">Save Target Configuration</button>
+              </div>
+              <div id="targetConfigStatus" class="status"></div>
+            </div>
+          </section>
+
+          <section id="docs" class="panel">
+            <div class="step-heading">
+              <span>Step 3 &middot; Documentation</span>
+              <h2>Explore Program Knowledge</h2>
+            </div>
+            <p>Browse indexed COBOL programs alongside mainframe dependencies such as JCL jobs, IMS DBDs, DB2 tables, CICS flows, MQ verbs, and assembler modules. Technology tags flow through the docs so you can see exactly which platform surfaces a result.</p>
+            <p class="context-snippet">Tip: try indexing <code>examples/mainframe</code> to explore the new multi-technology walkthrough next to the classic COBOL samples.</p>
+            <hr />
+            <div class="chat-with-code" data-flows="chat-with-code" hidden aria-hidden="true">
+              <h3>Chat with Code</h3>
+              <p>Interact with the assistant after ingestion to validate findings, synthesize modernization strategies, or dive into implementation details. Toggle Retrieval-Augmented Generation (RAG) to pull from the indexed collections.</p>
+              <label>Prompt</label>
+              <textarea id="chatPrompt" placeholder="Describe the modernization focus or ask for best practices..."></textarea>
+              <div class="toggle-field">
+                <input type="checkbox" id="chatUseRag" />
+                <label for="chatUseRag" style="margin:0; font-weight:500;">Use RAG context for responses</label>
+              </div>
+              <label>Collection (optional)</label>
+              <input type="text" id="chatCollection" placeholder="cwa_docs" />
+              <div class="button-group">
+                <button id="chatSend">Send Prompt</button>
+              </div>
+              <div id="chatResult" class="result"></div>
+            </div>
+            <div data-flows="doc-generation" hidden aria-hidden="true">
+              <div class="button-group">
+                <button id="loadProjectDoc">Load Project Overview</button>
+              </div>
+              <div id="projectDoc" class="result"></div>
+              <hr />
+              <h3>Program Details</h3>
+              <label>Program Symbol</label>
+              <input type="text" id="programSymbol" placeholder="CUSTOMER-REPORT" />
+              <div class="button-group">
+                <button id="loadProgramDoc" class="button-secondary">Load Program</button>
+              </div>
+              <div id="programDoc" class="result"></div>
+            </div>
+          </section>
+
+          <section id="artifacts" class="panel">
+            <div class="step-heading">
+              <span>Step 4 &middot; Artifacts</span>
+              <h2>Consolidated Documentation</h2>
+            </div>
+            <p>Review the unified documentation snapshot created at the end of each modernization workflow and export it for downstream teams.</p>
+            <div
+              id="consolidatedDocPane"
+              class="consolidated-doc-pane"
+              data-flows="doc-generation"
+              hidden
+              aria-hidden="true"
+            >
+              <div class="consolidated-pane-header">
+                <div>
+                  <h3>Project Documentation Snapshot</h3>
+                  <p class="consolidated-description">View, download, or copy the consolidated markdown assembled after the workflow finishes.</p>
+                </div>
+                <div class="button-group consolidated-actions">
+                  <button id="consolidatedDocView">Refresh View</button>
+                  <button id="consolidatedDocDownload" class="button-secondary" disabled>Download ZIP</button>
+                  <button id="consolidatedDocCopy" class="button-secondary" disabled>Copy Markdown</button>
+                </div>
+              </div>
+              <div
+                id="consolidatedDocStatus"
+                class="status"
+                role="status"
+                aria-live="polite"
+              >Consolidated documentation will appear here after a workflow completes.</div>
+              <div
+                id="consolidatedDocViewer"
+                class="consolidated-viewer"
+                role="region"
+                aria-live="polite"
+                data-has-content="false"
+              >
+                <article id="consolidatedDocContent" class="doc-content doc-markdown" hidden></article>
+              </div>
+            </div>
+            <div class="empty-state" data-flows="code-conversion" hidden aria-hidden="true">Artifact management hooks will appear here. Stay tuned!</div>
+          </section>
+
+          <section id="workflow" class="panel">
+            <div class="step-heading">
+              <span>Step 5 &middot; Workflow</span>
+              <h2>Project Workflow</h2>
+            </div>
+            <label>Project Identifier</label>
+            <input type="text" id="workflowProject" list="workflowProjectOptions" placeholder="project-identifier" />
+            <datalist id="workflowProjectOptions"></datalist>
+            <label>Mainframe Repository</label>
+            <input type="text" id="workflowMainframe" list="workflowMainframeOptions" placeholder="/workspace/Katral_phase1/examples/mainframe" />
+            <datalist id="workflowMainframeOptions"></datalist>
+            <label>Detected Technologies</label>
+            <div id="workflowStacksDisplay" class="tech-badge-list" aria-live="polite"></div>
+            <div id="workflowStacksStatus" class="tech-status" role="status"></div>
+            <label>Collection</label>
+            <input type="text" id="workflowCollection" list="workflowCollectionOptions" placeholder="cwa_docs" />
+            <datalist id="workflowCollectionOptions"></datalist>
+            <div class="workflow-flow-group" data-flows="doc-generation,code-conversion" hidden aria-hidden="true">
+              <label>Generator Command</label>
+              <input type="text" id="workflowGenerator" list="workflowGeneratorOptions" placeholder="e.g. ./gradlew generate" />
+              <datalist id="workflowGeneratorOptions"></datalist>
+              <label>Generator Directory</label>
+              <input type="text" id="workflowGeneratorDir" list="workflowGeneratorDirOptions" placeholder="working directory for generator command" />
+              <datalist id="workflowGeneratorDirOptions"></datalist>
+              <label>Spring Project Path</label>
+              <input type="text" id="workflowSpring" list="workflowSpringOptions" placeholder="/path/to/generated/spring/project" />
+              <datalist id="workflowSpringOptions"></datalist>
+              <label>Review Prompt</label>
+              <textarea id="workflowReview" placeholder="Describe the business rule to validate"></textarea>
+              <div class="toggle-field">
+                <input type="checkbox" id="workflowReset" />
+                <label for="workflowReset" style="margin:0; font-weight:500;">Reset knowledge base before ingest</label>
+              </div>
+              <div class="toggle-field">
+                <input type="checkbox" id="workflowVerify" />
+                <label for="workflowVerify" style="margin:0; font-weight:500;">Verify Spring project (build and test)</label>
+              </div>
+            </div>
+            <div class="button-group">
+              <button id="workflowStart">Start Workflow</button>
+              <button id="workflowStop" class="button-secondary" disabled>Stop Workflow</button>
+            </div>
+            <div id="workflowStatus" class="status"></div>
+            <div id="workflowSteps" class="result"></div>
+            <div id="workflowDownloadContainer" class="workflow-download" data-flows="code-conversion" hidden aria-hidden="true">
+              <label for="workflowArtifactSelect" class="visually-hidden">Select artifact to download</label>
+              <select id="workflowArtifactSelect" class="artifact-select"></select>
+              <button id="workflowDownload" class="button-secondary">Download Artifact</button>
+              <div id="workflowDownloadStatus" class="status" aria-live="polite"></div>
+            </div>
+            <div id="workflowReviewResult" class="result"></div>
+          </section>
+
+          <section id="agent" class="panel">
+            <div class="step-heading">
+              <span>Step 6 &middot; Agent Review</span>
+              <h2>Agent</h2>
+            </div>
+            <label>Goal</label>
+            <textarea id="agentGoal" placeholder="Outline the outcome you want the agent to pursue..."></textarea>
+            <div class="button-group">
+              <button id="agentRun">Run Agent</button>
+            </div>
+            <div id="agentResult" class="result"></div>
+          </section>
+        </div>
+      </section>
+    </div>
+  </main>
+
+    <script type="module" src="./js/workflow.js"></script>
+    <script type="module" src="./js/consolidated_doc.js"></script>
+    <script type="module" src="./js/main.js"></script>
+</body>
+</html>

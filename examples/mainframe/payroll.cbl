@@ -1,0 +1,17 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. PAYROLL.
+       DATA DIVISION.
+       WORKING-STORAGE SECTION.
+       01  EMP-ID           PIC X(08).
+       01  PAY-AMOUNT       PIC 9(07)V99.
+       PROCEDURE DIVISION.
+       MAIN-LOGIC.
+           EXEC CICS RECEIVE MAP('PAYIN') END-EXEC
+           EXEC SQL
+               INSERT INTO PAY_AUDIT (EMPLOYEE_ID, AMOUNT)
+               VALUES (:EMP-ID, :PAY-AMOUNT)
+           END-EXEC
+           MOVE EMP-ID TO PAY-OUT-ID
+           EXEC CICS SEND MAP('PAYOUT') END-EXEC
+           MQPUT
+           GOBACK.

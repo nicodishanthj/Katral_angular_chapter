@@ -1,0 +1,32 @@
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID. CUSTOMER-REPORT.
+       ENVIRONMENT DIVISION.
+       INPUT-OUTPUT SECTION.
+       FILE-CONTROL.
+           SELECT CUSTOMER-FILE ASSIGN TO 'customers.dat'.
+       DATA DIVISION.
+       FILE SECTION.
+       FD  CUSTOMER-FILE.
+       01  CUSTOMER-REC.
+           05 CUSTOMER-ID        PIC X(10).
+           05 CUSTOMER-NAME      PIC X(30).
+           05 CUSTOMER-BALANCE   PIC 9(7)V99.
+       WORKING-STORAGE SECTION.
+       01  TOTAL-BALANCE        PIC 9(9)V99 VALUE 0.
+       01  WS-CUSTOMER-NAME     PIC X(30).
+       PROCEDURE DIVISION.
+       MAIN-PARA.
+           OPEN INPUT CUSTOMER-FILE
+           PERFORM UNTIL CUSTOMER-ID = SPACES
+               READ CUSTOMER-FILE
+                   AT END MOVE SPACES TO CUSTOMER-ID
+               END-READ
+               IF CUSTOMER-ID NOT = SPACES
+                   ADD CUSTOMER-BALANCE TO TOTAL-BALANCE
+                   MOVE CUSTOMER-NAME TO WS-CUSTOMER-NAME
+                   DISPLAY "Customer:" WS-CUSTOMER-NAME
+               END-IF
+           END-PERFORM
+           DISPLAY "Total Balance:" TOTAL-BALANCE
+           CLOSE CUSTOMER-FILE
+           STOP RUN.

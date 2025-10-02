@@ -1,0 +1,25 @@
+# Go
+bin/
+*.exe
+*.test
+*.out
+
+# IDEs
+.vscode/
+.idea/
+.DS_Store
+
+# Data and artifacts
+data/
+!internal/data/
+chroma_data/
+kuzu_data/
+qdrant/
+!third_party/qdrant/
+
+# Java build directories
+build/
+target/
+
+# Env files
+.env
