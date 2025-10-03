@@ -14,8 +14,10 @@ import {
   getFlowConfig,
   getKnowledgeFlows,
   getModernizationFlows,
+  getAngularMigrationFlows,
   setProjectIdentifier,
   getProjectIdentifier,
+  getMigrationConfig,
   onProjectIdentifierChange,
   onFlowChange
 } from './state.js';
@@ -23,6 +25,8 @@ import {
 const flowConfig = getFlowConfig();
 const knowledgeFlows = getKnowledgeFlows();
 const modernizationFlows = getModernizationFlows();
+const angularMigrationFlows = getAngularMigrationFlows();
+const migrationConfigState = getMigrationConfig();
 const artifactLabelMap = {
   spring: 'Spring Artifact',
   documentation_summary: 'Documentation Summaries',
@@ -1461,6 +1465,102 @@ export function isWorkflowAlreadyRunningError(err) {
   return /workflow already running/i.test(message);
 }
 
+function parseMappingText(rawText) {
+  if (typeof rawText !== 'string' || !rawText.trim()) {
+    return {};
+  }
+  const mapping = {};
+  rawText
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) {
+        return;
+      }
+      const separators = ['=>', '->', ':', '='];
+      let separator = '';
+      let index = -1;
+      for (const candidate of separators) {
+        const candidateIndex = trimmed.indexOf(candidate);
+        if (candidateIndex !== -1) {
+          separator = candidate;
+          index = candidateIndex;
+          break;
+        }
+      }
+      if (index === -1) {
+        return;
+      }
+      const from = trimmed.slice(0, index).trim();
+      const to = trimmed.slice(index + separator.length).trim();
+      if (!from || !to) {
+        return;
+      }
+      mapping[from] = to;
+    });
+  return mapping;
+}
+
+function buildMigrationConfigPayload(state) {
+  if (!state) {
+    return null;
+  }
+  const source = state.source || {};
+  const target = state.target || {};
+  const mappingText = state.mappingText || {};
+  const angularSourceRoot = typeof source.sourceRoot === 'string' ? source.sourceRoot.trim() : '';
+  const angularVersion = typeof source.version === 'string' ? source.version.trim() : '';
+  const reactTargetRoot = typeof target.targetRoot === 'string' ? target.targetRoot.trim() : '';
+  const reactVersion = typeof target.version === 'string' ? target.version.trim() : '';
+
+  const componentLifecycle = parseMappingText(mappingText.componentLifecycle);
+  const directiveConversions = parseMappingText(mappingText.directiveConversions);
+  const serviceContexts = parseMappingText(mappingText.serviceContexts);
+  const pipeConversions = parseMappingText(mappingText.pipeConversions);
+  const guardRoutes = parseMappingText(mappingText.guardRoutes);
+
+  const hasMappings =
+    Object.keys(componentLifecycle).length ||
+    Object.keys(directiveConversions).length ||
+    Object.keys(serviceContexts).length ||
+    Object.keys(pipeConversions).length ||
+    Object.keys(guardRoutes).length;
+  const hasRequired = angularSourceRoot && angularVersion && reactTargetRoot && reactVersion;
+
+  if (!hasRequired && !hasMappings) {
+    return null;
+  }
+  if (!hasRequired) {
+    return null;
+  }
+
+  const payload = {
+    angular_source_root: angularSourceRoot,
+    angular_version: angularVersion,
+    react_target_root: reactTargetRoot,
+    react_version: reactVersion
+  };
+
+  if (Object.keys(componentLifecycle).length) {
+    payload.component_lifecycle_mapping = componentLifecycle;
+  }
+  if (Object.keys(directiveConversions).length) {
+    payload.directive_conversion_mapping = directiveConversions;
+  }
+  if (Object.keys(serviceContexts).length) {
+    payload.service_context_mapping = serviceContexts;
+  }
+  if (Object.keys(pipeConversions).length) {
+    payload.pipe_conversion_mapping = pipeConversions;
+  }
+  if (Object.keys(guardRoutes).length) {
+    payload.guard_route_mapping = guardRoutes;
+  }
+
+  return payload;
+}
+
 export function buildWorkflowStartPayload(options = {}) {
   const overrides = options && typeof options.overrides === 'object' ? options.overrides : null;
   const projectId = getProjectIdentifier();
@@ -1526,6 +1626,13 @@ export function buildWorkflowStartPayload(options = {}) {
 
   if (modernizationFlows.has(selectedFlow)) {
     payload.target_config = { ...flowConfig.modernization };
+  }
+
+  if (angularMigrationFlows.has(selectedFlow)) {
+    const migrationPayload = buildMigrationConfigPayload(migrationConfigState);
+    if (migrationPayload) {
+      payload.migration_config = migrationPayload;
+    }
   }
 
   if (overrides) {

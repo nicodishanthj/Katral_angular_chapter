@@ -179,6 +179,41 @@
                 <select id="reactUiLibraries" multiple size="5"></select>
                 <p class="config-hint">Hold Ctrl or Command to choose multiple UI libraries.</p>
               </div>
+              <div class="config-subsection">
+                <h4>Conversion Mapping Rules</h4>
+                <p class="config-help">Capture reusable translation rules so the migration playbooks can align Angular concepts with their React equivalents.</p>
+                <label for="componentLifecycleMappings">Component Lifecycle Mappings</label>
+                <textarea
+                  id="componentLifecycleMappings"
+                  rows="5"
+                  placeholder="OnInit =&gt; useEffect(() =&gt; initialize(), [])"
+                ></textarea>
+                <label for="directiveConversionMappings">Directive to HOC/Hook Conversions</label>
+                <textarea
+                  id="directiveConversionMappings"
+                  rows="5"
+                  placeholder="*ngIf =&gt; useConditionalRender(condition, Component)"
+                ></textarea>
+                <label for="serviceContextMappings">Service to Context/Hook Patterns</label>
+                <textarea
+                  id="serviceContextMappings"
+                  rows="5"
+                  placeholder="AuthService =&gt; useAuthContext()"
+                ></textarea>
+                <label for="pipeConversionMappings">Pipe to Utility Function Conversions</label>
+                <textarea
+                  id="pipeConversionMappings"
+                  rows="5"
+                  placeholder="date =&gt; formatDate(value, locale)"
+                ></textarea>
+                <label for="guardRouteMappings">Guard to Route Protection Patterns</label>
+                <textarea
+                  id="guardRouteMappings"
+                  rows="5"
+                  placeholder="AuthGuard =&gt; requireAuth(RouteComponent)"
+                ></textarea>
+                <p class="config-hint">Use one rule per line in the format <code>AngularConcept =&gt; ReactStrategy</code>. Lines beginning with <code>#</code> are ignored.</p>
+              </div>
             </div>
             <div id="targetConfigSection" class="config-section" hidden>
               <h3>Target Modernization Settings</h3>

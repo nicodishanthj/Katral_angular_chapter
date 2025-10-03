@@ -8,7 +8,8 @@ const migrationConfig = {
     version: 'auto',
     detectedVersion: '',
     moduleType: 'standalone',
-    buildSystem: 'angular-cli'
+    buildSystem: 'angular-cli',
+    sourceRoot: './src/app'
   },
   target: {
     framework: 'React',
@@ -16,7 +17,45 @@ const migrationConfig = {
     componentPattern: 'functional-hooks',
     stateManagement: 'redux-toolkit',
     routing: 'react-router',
-    uiLibraries: ['mui']
+    uiLibraries: ['mui'],
+    targetRoot: './src/react-app'
+  },
+  mappingText: {
+    componentLifecycle: [
+      'OnInit => useEffect(() => initialize(), [])',
+      'OnDestroy => useEffect(() => () => cleanup(), [])',
+      'AfterViewInit => useLayoutEffect(() => hydrateView(), [])',
+      'AfterViewChecked => useEffect(() => syncViewWithState(), [dependencies])',
+      'DoCheck => useEffect(() => runCustomChangeDetection(), [dependencies])'
+    ].join('\n'),
+    directiveConversions: [
+      '*ngIf => withConditionalRender(condition, Component)',
+      '*ngFor => useListRenderer(items, renderItem)',
+      '[(ngModel)] => useControlledField(binding)',
+      '[ngClass] => withDynamicClasses(classMap)',
+      '[ngStyle] => withInlineStyles(styleMap)'
+    ].join('\n'),
+    serviceContexts: [
+      'AuthService => useAuthContext()',
+      'UserService => useUserContext()',
+      'HttpClient => useHttpClient()',
+      'Store => useReduxStore()',
+      'Router => useRouter()'
+    ].join('\n'),
+    pipeConversions: [
+      'date => formatDate(value, locale)',
+      'currency => formatCurrency(value, currencyCode)',
+      'async => useAsyncValue(observable)',
+      'json => JSON.stringify(value, null, 2)',
+      'uppercase => value.toUpperCase()'
+    ].join('\n'),
+    guardRoutes: [
+      'AuthGuard => requireAuth(Component)',
+      'RoleGuard => requireRole(Component, roles)',
+      'CanActivateChild => protectChildRoutes(children)',
+      'CanLoad => lazyLoadWithGuard(factory)',
+      'CanActivate => guardRoute(Component, condition)'
+    ].join('\n')
   }
 };
 

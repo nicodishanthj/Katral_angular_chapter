@@ -268,6 +268,11 @@ let reactComponentPatternSelect;
 let reactStateManagementSelect;
 let reactRoutingSelect;
 let reactUiLibrariesSelect;
+let componentLifecycleMappingsInput;
+let directiveConversionMappingsInput;
+let serviceContextMappingsInput;
+let pipeConversionMappingsInput;
+let guardRouteMappingsInput;
 let ingestIntroEl;
 let knowledgeRepoInput;
 let knowledgeCollectionInput;
@@ -349,6 +354,11 @@ export function initIngest() {
   reactStateManagementSelect = document.getElementById('reactStateManagement');
   reactRoutingSelect = document.getElementById('reactRouting');
   reactUiLibrariesSelect = document.getElementById('reactUiLibraries');
+  componentLifecycleMappingsInput = document.getElementById('componentLifecycleMappings');
+  directiveConversionMappingsInput = document.getElementById('directiveConversionMappings');
+  serviceContextMappingsInput = document.getElementById('serviceContextMappings');
+  pipeConversionMappingsInput = document.getElementById('pipeConversionMappings');
+  guardRouteMappingsInput = document.getElementById('guardRouteMappings');
   targetConfigStatusEl = document.getElementById('targetConfigStatus');
   documentationFlowBlocks = Array.from(document.querySelectorAll('#docs [data-flows], #artifacts [data-flows]'));
   ingestDropZone = document.getElementById('ingestDropZone');
@@ -375,6 +385,7 @@ export function initIngest() {
   bindSearch();
   bindWorkflowRepoSeed();
 
+  renderMigrationMappings();
   renderTechnologyBadges();
   syncKnowledgeConfig();
   syncTargetConfig();
@@ -489,6 +500,25 @@ function bindMigrationInputs() {
       syncMigrationConfig();
     });
   }
+
+  const mappingInputs = [
+    [componentLifecycleMappingsInput, 'componentLifecycle'],
+    [directiveConversionMappingsInput, 'directiveConversions'],
+    [serviceContextMappingsInput, 'serviceContexts'],
+    [pipeConversionMappingsInput, 'pipeConversions'],
+    [guardRouteMappingsInput, 'guardRoutes']
+  ];
+  mappingInputs.forEach(([input]) => {
+    if (!input) {
+      return;
+    }
+    input.addEventListener('input', () => {
+      syncMigrationConfig();
+    });
+    input.addEventListener('blur', () => {
+      syncMigrationConfig();
+    });
+  });
 }
 
 function bindFileUpload() {
@@ -834,6 +864,9 @@ function updateIngestView(flow) {
 
   syncKnowledgeConfig();
   syncTargetConfig();
+  if (showMigration) {
+    renderMigrationMappings();
+  }
   syncMigrationConfig();
   updateAngularVersionMessaging();
 
@@ -994,6 +1027,28 @@ function configureMigrationSelects() {
     selected: selectedLibraries.has(option.value)
   }));
   configureSingleSelect(reactUiLibrariesSelect, libraryOptions);
+}
+
+function renderMigrationMappings() {
+  if (!migrationConfig || !migrationConfig.mappingText) {
+    return;
+  }
+  const mappingText = migrationConfig.mappingText;
+  if (componentLifecycleMappingsInput) {
+    componentLifecycleMappingsInput.value = mappingText.componentLifecycle || '';
+  }
+  if (directiveConversionMappingsInput) {
+    directiveConversionMappingsInput.value = mappingText.directiveConversions || '';
+  }
+  if (serviceContextMappingsInput) {
+    serviceContextMappingsInput.value = mappingText.serviceContexts || '';
+  }
+  if (pipeConversionMappingsInput) {
+    pipeConversionMappingsInput.value = mappingText.pipeConversions || '';
+  }
+  if (guardRouteMappingsInput) {
+    guardRouteMappingsInput.value = mappingText.guardRoutes || '';
+  }
 }
 
 function updateAngularVersionMessaging() {
@@ -1269,6 +1324,7 @@ function syncMigrationConfig() {
   }
   const source = migrationConfig.source || (migrationConfig.source = {});
   const target = migrationConfig.target || (migrationConfig.target = {});
+  const mappingText = migrationConfig.mappingText || (migrationConfig.mappingText = {});
   source.detectedVersion = detectedAngularVersion || '';
   if (angularVersionSelect) {
     const value = angularVersionSelect.value || 'auto';
@@ -1315,6 +1371,44 @@ function syncMigrationConfig() {
   } else if (!Array.isArray(target.uiLibraries)) {
     target.uiLibraries = [];
   }
+
+  if (componentLifecycleMappingsInput) {
+    mappingText.componentLifecycle = normalizeMappingText(componentLifecycleMappingsInput.value);
+  } else if (!mappingText.componentLifecycle) {
+    mappingText.componentLifecycle = '';
+  }
+  if (directiveConversionMappingsInput) {
+    mappingText.directiveConversions = normalizeMappingText(directiveConversionMappingsInput.value);
+  } else if (!mappingText.directiveConversions) {
+    mappingText.directiveConversions = '';
+  }
+  if (serviceContextMappingsInput) {
+    mappingText.serviceContexts = normalizeMappingText(serviceContextMappingsInput.value);
+  } else if (!mappingText.serviceContexts) {
+    mappingText.serviceContexts = '';
+  }
+  if (pipeConversionMappingsInput) {
+    mappingText.pipeConversions = normalizeMappingText(pipeConversionMappingsInput.value);
+  } else if (!mappingText.pipeConversions) {
+    mappingText.pipeConversions = '';
+  }
+  if (guardRouteMappingsInput) {
+    mappingText.guardRoutes = normalizeMappingText(guardRouteMappingsInput.value);
+  } else if (!mappingText.guardRoutes) {
+    mappingText.guardRoutes = '';
+  }
+}
+
+function normalizeMappingText(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map(line => line.trim())
+    .join('\n')
+    .trim();
 }
 
 function resetUploadProgress() {
