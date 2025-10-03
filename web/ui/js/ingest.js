@@ -22,6 +22,57 @@ const flowConfig = getFlowConfig();
 const knowledgeFlows = getKnowledgeFlows();
 const modernizationFlows = getModernizationFlows();
 
+const angularKnowledgePreset = {
+  stackOptions: [
+    { value: 'angular-components', label: 'Angular Components', selected: true },
+    { value: 'angular-services', label: 'Angular Services' },
+    { value: 'angular-modules', label: 'Angular Modules' },
+    { value: 'angular-routing', label: 'Angular Routing' },
+    { value: 'angular-templates', label: 'Angular Templates' },
+    { value: 'angular-cli', label: 'Angular CLI Tooling' },
+    { value: 'rxjs-streams', label: 'RxJS Streams' },
+    { value: 'ngrx-state', label: 'NgRx State Management' }
+  ],
+  versionOptions: [
+    { value: 'angular-17', label: 'Angular v17 (Standalone)', selected: true },
+    { value: 'angular-16', label: 'Angular v16' },
+    { value: 'angular-15', label: 'Angular v15' },
+    { value: 'angular-legacy', label: 'Angular v14 or earlier' }
+  ],
+  collectionOptions: [
+    { value: 'angular_component_catalog', label: 'Angular Component Catalog', selected: true },
+    { value: 'angular_service_registry', label: 'Angular Service Registry' },
+    { value: 'angular_module_reference', label: 'Angular Module Reference' }
+  ],
+  additionalStacks: ['Standalone Components', 'Nx Workspaces', 'Jest Unit Tests'],
+  useStackBadges: true
+};
+
+const reactTargetPreset = {
+  languageOptions: [
+    { value: 'typescript-5', label: 'TypeScript 5.x', selected: true },
+    { value: 'javascript-es2022', label: 'JavaScript (ES2022)' }
+  ],
+  versionOptions: [
+    { value: 'typescript-5-4', label: 'TypeScript 5.4', selected: true },
+    { value: 'typescript-4-9', label: 'TypeScript 4.9' },
+    { value: 'javascript-es2020', label: 'JavaScript ES2020' }
+  ],
+  frameworkOptions: [
+    { value: 'react-18', label: 'React 18 with Hooks', selected: true },
+    { value: 'next-14', label: 'Next.js 14' },
+    { value: 'remix', label: 'Remix' },
+    { value: 'react-native', label: 'React Native' }
+  ],
+  runtimeOptions: [
+    { value: 'vercel', label: 'Vercel Serverless', selected: true },
+    { value: 'netlify-edge', label: 'Netlify Edge' },
+    { value: 'aws-amplify', label: 'AWS Amplify' },
+    { value: 'azure-static-web-apps', label: 'Azure Static Web Apps' },
+    { value: 'docker-runtime', label: 'Docker (Containerized)' }
+  ]
+};
+
 const projectConfigPresets = {
   'knowledge-base': {
     knowledge: {
@@ -69,33 +120,78 @@ const projectConfigPresets = {
     }
   },
   'code-conversion': {
+    knowledge: angularKnowledgePreset,
+    target: reactTargetPreset
+  },
+  'angular-modernization': {
+    knowledge: angularKnowledgePreset
+  },
+  'angular-react-migration': {
+    knowledge: angularKnowledgePreset,
     target: {
-      languageOptions: [
-        { value: 'java-21', label: 'Java 21 LTS', selected: true },
-        { value: 'java-17', label: 'Java 17 LTS' },
-        { value: 'java-11', label: 'Java 11' }
-      ],
-      versionOptions: [
-        { value: 'openjdk-21', label: 'OpenJDK 21 LTS', selected: true },
-        { value: 'openjdk-17', label: 'OpenJDK 17 LTS' },
-        { value: 'temurin-11', label: 'Eclipse Temurin 11' }
-      ],
-      frameworkOptions: [
-        { value: 'spring-boot', label: 'Spring Boot', selected: true },
-        { value: 'spring-batch', label: 'Spring Batch' },
-        { value: 'micronaut', label: 'Micronaut' },
-        { value: 'quarkus', label: 'Quarkus' }
-      ],
-      runtimeOptions: [
-        { value: 'aws-ecs-task', label: 'AWS ECS Task', selected: true },
-        { value: 'aws-eks', label: 'AWS Elastic Kubernetes Service (EKS)' },
-        { value: 'gcp-cloud-run', label: 'GCP Cloud Run' },
-        { value: 'gke', label: 'Google Kubernetes Engine (GKE)' },
-        { value: 'kubernetes', label: 'Kubernetes' }
-      ]
+      ...reactTargetPreset
     }
   }
 };
+
+function hasKnowledgeConfiguration(flow) {
+  return knowledgeFlows.has(flow) || Boolean(projectConfigPresets[flow]?.knowledge);
+}
+
+function hasTargetConfiguration(flow) {
+  return modernizationFlows.has(flow) || Boolean(projectConfigPresets[flow]?.target);
+}
+
+function getKnowledgePreset(flow) {
+  return projectConfigPresets[flow]?.knowledge || null;
+}
+
+function getTargetPreset(flow) {
+  return projectConfigPresets[flow]?.target || null;
+}
+
+let presetTechnologyBadges = [];
+
+function updatePresetTechnologiesForFlow(flow) {
+  if (!flow) {
+    presetTechnologyBadges = [];
+    return;
+  }
+  const knowledgePreset = getKnowledgePreset(flow);
+  if (!knowledgePreset) {
+    presetTechnologyBadges = [];
+    return;
+  }
+  const badges = [];
+  const addOptionLabels = options => {
+    if (!Array.isArray(options)) {
+      return;
+    }
+    options.forEach(option => {
+      const label = typeof option?.label === 'string' && option.label.trim() ? option.label.trim() : null;
+      if (label) {
+        badges.push(label);
+      }
+    });
+  };
+  addOptionLabels(knowledgePreset.versionOptions);
+  if (knowledgePreset.useStackBadges) {
+    addOptionLabels(knowledgePreset.stackOptions);
+  }
+  if (Array.isArray(knowledgePreset.additionalStacks)) {
+    knowledgePreset.additionalStacks
+      .filter(item => typeof item === 'string' && item.trim())
+      .forEach(item => badges.push(item.trim()));
+  }
+  const unique = new Set();
+  presetTechnologyBadges = badges.filter(item => {
+    if (unique.has(item)) {
+      return false;
+    }
+    unique.add(item);
+    return true;
+  });
+}
 
 let selectionCards = [];
 let flowSummaryEl;
@@ -148,6 +244,12 @@ export function initIngest() {
   flowSummaryEl = document.getElementById('flowSelectionSummary');
   knowledgeConfigSection = document.getElementById('knowledgeConfigSection');
   targetConfigSection = document.getElementById('targetConfigSection');
+  const modernizationTitle = 'Katral - Angular Modernization Chapter';
+  document.title = modernizationTitle;
+  const headerTitle = document.querySelector('header h1');
+  if (headerTitle) {
+    headerTitle.textContent = modernizationTitle;
+  }
   ingestIntroEl = document.getElementById('ingestIntro');
   knowledgeRepoInput = document.getElementById('ingestRepo');
   knowledgeCollectionInput = document.getElementById('ingestCollection');
@@ -339,10 +441,10 @@ function bindActions() {
     ingestButton.addEventListener('click', async () => {
       syncKnowledgeConfig();
       const selectedFlow = getSelectedFlow();
-      if (!knowledgeFlows.has(selectedFlow)) {
+      if (!hasKnowledgeConfiguration(selectedFlow)) {
         if (ingestStatusEl) {
           ingestStatusEl.textContent =
-            'Select a knowledge-enabled focus (Knowledge Base, Document Generation, Code Conversion, or Chat with Code) to run ingest.';
+            'Select a knowledge-enabled focus (Knowledge Base, Document Generation, Angular Modernization, Angular to React Migration, Code Conversion, or Chat with Code) to run ingest.';
           ingestStatusEl.classList.add('warning');
         }
         return;
@@ -413,7 +515,7 @@ function bindActions() {
         return;
       }
       const selectedFlow = getSelectedFlow();
-      if (!modernizationFlows.has(selectedFlow)) {
+      if (!hasTargetConfiguration(selectedFlow)) {
         targetConfigStatusEl.textContent = 'Select a modernization workflow to capture target settings.';
         targetConfigStatusEl.classList.add('warning');
         return;
@@ -485,7 +587,7 @@ function bindSearch() {
   searchButton.addEventListener('click', async () => {
     const selectedFlow = getSelectedFlow();
     const query = searchQueryInput.value.trim();
-    if (!knowledgeFlows.has(selectedFlow)) {
+    if (!hasKnowledgeConfiguration(selectedFlow)) {
       searchResultsEl.textContent = 'Vector search is available after configuring a knowledge base.';
       return;
     }
@@ -538,8 +640,10 @@ function bindWorkflowRepoSeed() {
 }
 
 function updateIngestView(flow) {
-  const showKnowledge = knowledgeFlows.has(flow);
-  const showTarget = modernizationFlows.has(flow);
+  const knowledgePreset = getKnowledgePreset(flow);
+  const targetPreset = getTargetPreset(flow);
+  const showKnowledge = hasKnowledgeConfiguration(flow);
+  const showTarget = hasTargetConfiguration(flow);
   if (knowledgeConfigSection) {
     knowledgeConfigSection.hidden = !showKnowledge;
   }
@@ -573,22 +677,34 @@ function updateIngestView(flow) {
   if (targetNotesInput) {
     targetNotesInput.disabled = !showTarget;
   }
+
+  updatePresetTechnologiesForFlow(showKnowledge ? flow : null);
+  if (!showKnowledge && !technologyLoading) {
+    technologyStatusMessage = 'Select a repository to detect technologies.';
+    technologyStatusLevel = 'info';
+  }
+  renderTechnologyBadges();
+
   if (showKnowledge) {
-    const knowledgePresets = projectConfigPresets[flow]?.knowledge;
-    configureSingleSelect(knowledgeCollectionInput, knowledgePresets?.collectionOptions || [], 'Select a collection');
-    syncKnowledgeConfig();
-    if (knowledgeRepoInput && knowledgeRepoInput.value.trim()) {
-      detectTechnologiesForRepo(knowledgeRepoInput.value, { force: true });
-    }
+    configureSingleSelect(knowledgeCollectionInput, knowledgePreset?.collectionOptions || [], 'Select a collection');
+  } else if (knowledgeCollectionInput) {
+    knowledgeCollectionInput.innerHTML = '';
   }
+
   if (showTarget) {
-    const targetPresets = projectConfigPresets[flow]?.target;
-    configureSingleSelect(targetLanguageInput, targetPresets?.languageOptions || [], 'Select a language');
-    configureSingleSelect(targetVersionInput, targetPresets?.versionOptions || [], 'Select a version');
-    configureSingleSelect(targetFrameworkInput, targetPresets?.frameworkOptions || [], 'Select a framework');
-    configureSingleSelect(targetRuntimeInput, targetPresets?.runtimeOptions || [], 'Select a runtime');
-    syncTargetConfig();
+    configureSingleSelect(targetLanguageInput, targetPreset?.languageOptions || [], 'Select a language');
+    configureSingleSelect(targetVersionInput, targetPreset?.versionOptions || [], 'Select a version');
+    configureSingleSelect(targetFrameworkInput, targetPreset?.frameworkOptions || [], 'Select a framework');
+    configureSingleSelect(targetRuntimeInput, targetPreset?.runtimeOptions || [], 'Select a runtime');
   }
+
+  syncKnowledgeConfig();
+  syncTargetConfig();
+
+  if (showKnowledge && knowledgeRepoInput && knowledgeRepoInput.value.trim()) {
+    detectTechnologiesForRepo(knowledgeRepoInput.value, { force: true });
+  }
+
   if (targetConfigStatusEl) {
     targetConfigStatusEl.textContent = '';
     targetConfigStatusEl.classList.remove('warning');
@@ -666,13 +782,26 @@ function configureSingleSelect(selectEl, options, placeholder) {
 }
 
 function renderTechnologyBadges() {
+  const combined = [];
+  const seen = new Set();
+  const pushBadge = value => {
+    const label = typeof value === 'string' ? value.trim() : '';
+    if (!label || seen.has(label)) {
+      return;
+    }
+    seen.add(label);
+    combined.push(label);
+  };
+  detectedTechnologies.forEach(pushBadge);
+  presetTechnologyBadges.forEach(pushBadge);
+
   const containers = [knowledgeStacksDisplay, workflowStacksDisplay];
   containers.forEach(container => {
     if (!container) {
       return;
     }
     container.innerHTML = '';
-    if (!detectedTechnologies.length) {
+    if (!combined.length) {
       const placeholder = document.createElement('span');
       placeholder.className = 'tech-placeholder';
       placeholder.textContent = technologyLoading
@@ -681,23 +810,107 @@ function renderTechnologyBadges() {
       container.appendChild(placeholder);
       return;
     }
-    detectedTechnologies.forEach(tech => {
+    combined.forEach(tech => {
       const badge = document.createElement('span');
       badge.className = 'tech-badge';
       badge.textContent = tech;
       container.appendChild(badge);
     });
   });
+  const usingPresetOnly = !detectedTechnologies.length && presetTechnologyBadges.length > 0;
   const statusElements = [knowledgeStacksStatus, workflowStacksStatus];
+  let message = technologyStatusMessage;
+  let level = technologyStatusLevel;
+  if (usingPresetOnly && !technologyLoading && technologyStatusLevel !== 'warning') {
+    message = 'Using Angular stack presets. Provide a repository to refine detection.';
+    level = 'info';
+  }
   statusElements.forEach(statusEl => {
     if (!statusEl) {
       return;
     }
-    const message = technologyStatusMessage;
     statusEl.textContent = message;
     statusEl.hidden = !message;
-    statusEl.classList.toggle('warning', technologyStatusLevel === 'warning');
+    statusEl.classList.toggle('warning', level === 'warning');
   });
+  if (usingPresetOnly && !technologyLoading && technologyStatusLevel !== 'warning') {
+    technologyStatusMessage = message;
+    technologyStatusLevel = level;
+  }
+}
+
+function extractAngularVersion(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const normalized = value.trim();
+  if (!normalized) {
+    return null;
+  }
+  const directMatch = normalized.match(/(?:^|[^a-z])angular(?!js)[\s@-]*(?:v(?:ersion)?\.?)?\s*(\d+(?:\.\d+)*)/i);
+  if (directMatch && directMatch[1]) {
+    return directMatch[1];
+  }
+  const scopedMatch = normalized.match(/@angular\/(?:core|cli|common|platform-browser)@?(\d+(?:\.\d+)*)/i);
+  if (scopedMatch && scopedMatch[1]) {
+    return scopedMatch[1];
+  }
+  return null;
+}
+
+function enrichDetectedTechnologies(list, repoPath) {
+  const enriched = [];
+  const seen = new Set();
+  const add = value => {
+    const label = typeof value === 'string' ? value.trim() : '';
+    if (!label || seen.has(label)) {
+      return;
+    }
+    seen.add(label);
+    enriched.push(label);
+  };
+  let angularDetected = false;
+  let angularVersion = null;
+  (list || []).forEach(value => {
+    add(value);
+    if (typeof value === 'string') {
+      const version = extractAngularVersion(value);
+      if (version && !angularVersion) {
+        angularVersion = version;
+      }
+      if (/angular(?!js)/i.test(value) || /@angular\//i.test(value)) {
+        angularDetected = true;
+      }
+    }
+  });
+  if (!angularDetected && typeof repoPath === 'string' && /angular/i.test(repoPath)) {
+    angularDetected = true;
+  }
+  if (!angularDetected) {
+    const lower = (list || []).map(value => (typeof value === 'string' ? value.toLowerCase() : ''));
+    if (lower.some(value => value.includes('@angular/'))) {
+      angularDetected = true;
+    } else if (lower.includes('typescript') && lower.includes('rxjs')) {
+      angularDetected = true;
+    }
+  }
+  if (angularDetected) {
+    const versionLabels = angularVersion
+      ? [`Angular v${angularVersion}`]
+      : ['Angular v17', 'Angular v16', 'Angular v15'];
+    versionLabels.forEach(add);
+    [
+      'Angular Components',
+      'Angular Services',
+      'Angular Modules',
+      'Angular Routing',
+      'Angular Templates',
+      'Angular CLI Tooling',
+      'RxJS Streams',
+      'NgRx State Management'
+    ].forEach(add);
+  }
+  return enriched;
 }
 
 async function detectTechnologiesForRepo(repoPath, options = {}) {
@@ -730,7 +943,7 @@ async function detectTechnologiesForRepo(repoPath, options = {}) {
     const list = Array.isArray(response.technologies)
       ? response.technologies.filter(value => typeof value === 'string' && value.trim() !== '')
       : [];
-    detectedTechnologies = list;
+    detectedTechnologies = enrichDetectedTechnologies(list, trimmed);
     lastDetectedRepo = trimmed;
     if (detectedTechnologies.length === 0) {
       technologyStatusMessage = 'No technologies detected.';
@@ -757,21 +970,49 @@ async function detectTechnologiesForRepo(repoPath, options = {}) {
 }
 
 function syncKnowledgeConfig() {
-  if (knowledgeRepoInput) {
+  const activeFlow = getSelectedFlow();
+  const knowledgeEnabled = hasKnowledgeConfiguration(activeFlow);
+  if (knowledgeEnabled && knowledgeRepoInput) {
     flowConfig.knowledge.repo = knowledgeRepoInput.value;
   } else {
     flowConfig.knowledge.repo = '';
   }
-  if (knowledgeCollectionInput) {
+  if (knowledgeEnabled && knowledgeCollectionInput) {
     flowConfig.knowledge.collection = knowledgeCollectionInput.value.trim();
   } else {
     flowConfig.knowledge.collection = '';
   }
-  flowConfig.knowledge.stacks = detectedTechnologies.slice();
+  if (knowledgeEnabled) {
+    const stacks = [];
+    const seen = new Set();
+    const add = value => {
+      const label = typeof value === 'string' ? value.trim() : '';
+      if (!label || seen.has(label)) {
+        return;
+      }
+      seen.add(label);
+      stacks.push(label);
+    };
+    detectedTechnologies.forEach(add);
+    presetTechnologyBadges.forEach(add);
+    flowConfig.knowledge.stacks = stacks;
+  } else {
+    flowConfig.knowledge.stacks = [];
+  }
 }
 
 function syncTargetConfig() {
   if (!targetLanguageInput || !targetVersionInput || !targetFrameworkInput || !targetRuntimeInput || !targetNotesInput) {
+    return;
+  }
+  const activeFlow = getSelectedFlow();
+  const targetEnabled = hasTargetConfiguration(activeFlow);
+  if (!targetEnabled) {
+    flowConfig.modernization.language = '';
+    flowConfig.modernization.version = '';
+    flowConfig.modernization.framework = '';
+    flowConfig.modernization.runtime = '';
+    flowConfig.modernization.notes = '';
     return;
   }
   flowConfig.modernization.language = targetLanguageInput.value.trim();
