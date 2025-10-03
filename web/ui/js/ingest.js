@@ -7,6 +7,8 @@ import {
   getFlowConfig,
   getKnowledgeFlows,
   getModernizationFlows,
+  getAngularMigrationFlows,
+  getMigrationConfig,
   setProjectIdentifier,
   getProjectIdentifier,
   onProjectIdentifierChange
@@ -21,6 +23,53 @@ import {
 const flowConfig = getFlowConfig();
 const knowledgeFlows = getKnowledgeFlows();
 const modernizationFlows = getModernizationFlows();
+const angularMigrationFlows = getAngularMigrationFlows();
+const migrationConfig = getMigrationConfig();
+
+const angularVersionCatalog = ['17', '16', '15', '14'];
+const angularModuleOptions = [
+  { value: 'standalone', label: 'Standalone Components' },
+  { value: 'ngmodule', label: 'NgModule Based' },
+  { value: 'hybrid', label: 'Hybrid (Standalone + NgModule)' }
+];
+const angularBuildSystems = [
+  { value: 'angular-cli', label: 'Angular CLI' },
+  { value: 'webpack', label: 'Webpack' },
+  { value: 'nx', label: 'Nx Workspace' },
+  { value: 'custom', label: 'Custom Toolchain' }
+];
+const reactVersionOptions = [
+  { value: '19', label: 'React 19 (Release Candidate)' },
+  { value: '18', label: 'React 18' },
+  { value: '17', label: 'React 17' }
+];
+const reactComponentPatterns = [
+  { value: 'functional-hooks', label: 'Functional Components with Hooks' },
+  { value: 'class-components', label: 'Class Components' },
+  { value: 'hybrid', label: 'Hybrid (Class + Functional)' }
+];
+const reactStateManagementOptions = [
+  { value: 'redux-toolkit', label: 'Redux Toolkit' },
+  { value: 'zustand', label: 'Zustand' },
+  { value: 'recoil', label: 'Recoil' },
+  { value: 'mobx', label: 'MobX' },
+  { value: 'context-api', label: 'React Context + Hooks' }
+];
+const reactRoutingOptions = [
+  { value: 'react-router', label: 'React Router' },
+  { value: 'next-router', label: 'Next.js App Router' },
+  { value: 'remix-router', label: 'Remix Router' },
+  { value: 'tanstack-router', label: 'TanStack Router' },
+  { value: 'custom', label: 'Custom / In-House' }
+];
+const reactUiLibraryOptions = [
+  { value: 'mui', label: 'MUI' },
+  { value: 'chakra', label: 'Chakra UI' },
+  { value: 'antd', label: 'Ant Design' },
+  { value: 'tailwind', label: 'Tailwind CSS' },
+  { value: 'mantine', label: 'Mantine' },
+  { value: 'headlessui', label: 'Headless UI' }
+];
 
 const angularKnowledgePreset = {
   stackOptions: [
@@ -142,6 +191,10 @@ function hasTargetConfiguration(flow) {
   return modernizationFlows.has(flow) || Boolean(projectConfigPresets[flow]?.target);
 }
 
+function hasMigrationConfiguration(flow) {
+  return angularMigrationFlows.has(flow);
+}
+
 function getKnowledgePreset(flow) {
   return projectConfigPresets[flow]?.knowledge || null;
 }
@@ -197,6 +250,16 @@ let selectionCards = [];
 let flowSummaryEl;
 let knowledgeConfigSection;
 let targetConfigSection;
+let migrationConfigSection;
+let angularVersionSelect;
+let angularVersionDetectedEl;
+let angularModuleTypeSelect;
+let angularBuildSystemSelect;
+let reactVersionSelect;
+let reactComponentPatternSelect;
+let reactStateManagementSelect;
+let reactRoutingSelect;
+let reactUiLibrariesSelect;
 let ingestIntroEl;
 let knowledgeRepoInput;
 let knowledgeCollectionInput;
@@ -236,6 +299,7 @@ let technologyStatusLevel = 'info';
 let technologyLoading = false;
 let technologyRequestSeq = 0;
 let lastDetectedRepo = '';
+let detectedAngularVersion = '';
 let queuedIngestFiles = [];
 let uploadInFlight = false;
 
@@ -244,6 +308,7 @@ export function initIngest() {
   flowSummaryEl = document.getElementById('flowSelectionSummary');
   knowledgeConfigSection = document.getElementById('knowledgeConfigSection');
   targetConfigSection = document.getElementById('targetConfigSection');
+  migrationConfigSection = document.getElementById('migrationConfigSection');
   const modernizationTitle = 'Katral - Angular Modernization Chapter';
   document.title = modernizationTitle;
   const headerTitle = document.querySelector('header h1');
@@ -267,6 +332,15 @@ export function initIngest() {
   targetFrameworkInput = document.getElementById('targetFramework');
   targetRuntimeInput = document.getElementById('targetRuntime');
   targetNotesInput = document.getElementById('targetNotes');
+  angularVersionSelect = document.getElementById('angularVersion');
+  angularVersionDetectedEl = document.getElementById('angularVersionDetected');
+  angularModuleTypeSelect = document.getElementById('angularModuleType');
+  angularBuildSystemSelect = document.getElementById('angularBuildSystem');
+  reactVersionSelect = document.getElementById('reactVersion');
+  reactComponentPatternSelect = document.getElementById('reactComponentPattern');
+  reactStateManagementSelect = document.getElementById('reactStateManagement');
+  reactRoutingSelect = document.getElementById('reactRouting');
+  reactUiLibrariesSelect = document.getElementById('reactUiLibraries');
   targetConfigStatusEl = document.getElementById('targetConfigStatus');
   documentationFlowBlocks = Array.from(document.querySelectorAll('#docs [data-flows], #artifacts [data-flows]'));
   ingestDropZone = document.getElementById('ingestDropZone');
@@ -286,6 +360,7 @@ export function initIngest() {
   bindFlowSelection();
   bindKnowledgeInputs();
   bindTargetInputs();
+  bindMigrationInputs();
   bindFileUpload();
   bindActions();
   bindProjectSync();
@@ -295,8 +370,10 @@ export function initIngest() {
   renderTechnologyBadges();
   syncKnowledgeConfig();
   syncTargetConfig();
+  syncMigrationConfig();
   updateIngestView(getSelectedFlow());
   updateDocumentationView(getSelectedFlow());
+  updateAngularVersionMessaging();
 
   const workflowMainframeValue = workflowMainframeInput ? workflowMainframeInput.value : '';
   if (workflowMainframeValue) {
@@ -376,6 +453,32 @@ function bindTargetInputs() {
   if (targetNotesInput) {
     targetNotesInput.addEventListener('input', () => {
       syncTargetConfig();
+    });
+  }
+}
+
+function bindMigrationInputs() {
+  const selects = [
+    angularVersionSelect,
+    angularModuleTypeSelect,
+    angularBuildSystemSelect,
+    reactVersionSelect,
+    reactComponentPatternSelect,
+    reactStateManagementSelect,
+    reactRoutingSelect
+  ];
+  selects.forEach(select => {
+    if (!select) {
+      return;
+    }
+    select.addEventListener('change', () => {
+      syncMigrationConfig();
+    });
+  });
+
+  if (reactUiLibrariesSelect) {
+    reactUiLibrariesSelect.addEventListener('change', () => {
+      syncMigrationConfig();
     });
   }
 }
@@ -644,14 +747,18 @@ function updateIngestView(flow) {
   const targetPreset = getTargetPreset(flow);
   const showKnowledge = hasKnowledgeConfiguration(flow);
   const showTarget = hasTargetConfiguration(flow);
+  const showMigration = hasMigrationConfiguration(flow);
   if (knowledgeConfigSection) {
     knowledgeConfigSection.hidden = !showKnowledge;
   }
   if (targetConfigSection) {
     targetConfigSection.hidden = !showTarget;
   }
+  if (migrationConfigSection) {
+    migrationConfigSection.hidden = !showMigration;
+  }
   if (ingestIntroEl) {
-    ingestIntroEl.hidden = showKnowledge || showTarget;
+    ingestIntroEl.hidden = showKnowledge || showTarget || showMigration;
   }
   if (ingestProjectInput) {
     ingestProjectInput.disabled = !showKnowledge;
@@ -677,6 +784,21 @@ function updateIngestView(flow) {
   if (targetNotesInput) {
     targetNotesInput.disabled = !showTarget;
   }
+  const migrationSelects = [
+    angularVersionSelect,
+    angularModuleTypeSelect,
+    angularBuildSystemSelect,
+    reactVersionSelect,
+    reactComponentPatternSelect,
+    reactStateManagementSelect,
+    reactRoutingSelect,
+    reactUiLibrariesSelect
+  ];
+  migrationSelects.forEach(select => {
+    if (select) {
+      select.disabled = !showMigration;
+    }
+  });
 
   updatePresetTechnologiesForFlow(showKnowledge ? flow : null);
   if (!showKnowledge && !technologyLoading) {
@@ -698,8 +820,14 @@ function updateIngestView(flow) {
     configureSingleSelect(targetRuntimeInput, targetPreset?.runtimeOptions || [], 'Select a runtime');
   }
 
+  if (showMigration) {
+    configureMigrationSelects();
+  }
+
   syncKnowledgeConfig();
   syncTargetConfig();
+  syncMigrationConfig();
+  updateAngularVersionMessaging();
 
   if (showKnowledge && knowledgeRepoInput && knowledgeRepoInput.value.trim()) {
     detectTechnologiesForRepo(knowledgeRepoInput.value, { force: true });
@@ -778,6 +906,104 @@ function configureSingleSelect(selectEl, options, placeholder) {
     if (selectEl.options[defaultIndex]) {
       selectEl.options[defaultIndex].selected = true;
     }
+  }
+}
+
+function configureMigrationSelects() {
+  if (!migrationConfig) {
+    return;
+  }
+  const source = migrationConfig.source || {};
+  const target = migrationConfig.target || {};
+  const selectedAngularVersion = source.version || 'auto';
+  const autoLabel = detectedAngularVersion
+    ? `Use detected version (Angular v${detectedAngularVersion})`
+    : 'Use detected version (pending detection)';
+  const versionOptions = [
+    { value: 'auto', label: autoLabel, selected: selectedAngularVersion === 'auto' || selectedAngularVersion === '' }
+  ];
+  angularVersionCatalog.forEach(version => {
+    versionOptions.push({
+      value: version,
+      label: `Angular v${version}`,
+      selected: selectedAngularVersion === version
+    });
+  });
+  configureSingleSelect(angularVersionSelect, versionOptions);
+
+  const moduleValue = source.moduleType || 'standalone';
+  const moduleOptions = angularModuleOptions.map(option => ({
+    value: option.value,
+    label: option.label,
+    selected: moduleValue === option.value
+  }));
+  configureSingleSelect(angularModuleTypeSelect, moduleOptions);
+
+  const buildValue = source.buildSystem || 'angular-cli';
+  const buildOptions = angularBuildSystems.map(option => ({
+    value: option.value,
+    label: option.label,
+    selected: buildValue === option.value
+  }));
+  configureSingleSelect(angularBuildSystemSelect, buildOptions);
+
+  const reactVersionValue = target.version || '18';
+  const reactVersionList = reactVersionOptions.map(option => ({
+    value: option.value,
+    label: option.label,
+    selected: reactVersionValue === option.value
+  }));
+  configureSingleSelect(reactVersionSelect, reactVersionList);
+
+  const componentValue = target.componentPattern || 'functional-hooks';
+  const componentOptions = reactComponentPatterns.map(option => ({
+    value: option.value,
+    label: option.label,
+    selected: componentValue === option.value
+  }));
+  configureSingleSelect(reactComponentPatternSelect, componentOptions);
+
+  const stateValue = target.stateManagement || 'redux-toolkit';
+  const stateOptions = reactStateManagementOptions.map(option => ({
+    value: option.value,
+    label: option.label,
+    selected: stateValue === option.value
+  }));
+  configureSingleSelect(reactStateManagementSelect, stateOptions);
+
+  const routingValue = target.routing || 'react-router';
+  const routingOptions = reactRoutingOptions.map(option => ({
+    value: option.value,
+    label: option.label,
+    selected: routingValue === option.value
+  }));
+  configureSingleSelect(reactRoutingSelect, routingOptions);
+
+  const selectedLibraries = new Set((target.uiLibraries || []).map(value => value || '').filter(Boolean));
+  const libraryOptions = reactUiLibraryOptions.map(option => ({
+    value: option.value,
+    label: option.label,
+    selected: selectedLibraries.has(option.value)
+  }));
+  configureSingleSelect(reactUiLibrariesSelect, libraryOptions);
+}
+
+function updateAngularVersionMessaging() {
+  if (angularVersionDetectedEl) {
+    if (detectedAngularVersion) {
+      angularVersionDetectedEl.textContent = `Auto-detected Angular version: v${detectedAngularVersion}. Override if the repository uses a different baseline.`;
+    } else {
+      angularVersionDetectedEl.textContent = 'Angular version will auto-detect once technologies are scanned.';
+    }
+  }
+  if (!angularVersionSelect) {
+    return;
+  }
+  const autoOption = Array.from(angularVersionSelect.options || []).find(option => option.value === 'auto');
+  if (autoOption) {
+    autoOption.textContent = detectedAngularVersion
+      ? `Use detected version (Angular v${detectedAngularVersion})`
+      : 'Use detected version (pending detection)';
   }
 }
 
@@ -910,6 +1136,7 @@ function enrichDetectedTechnologies(list, repoPath) {
       'NgRx State Management'
     ].forEach(add);
   }
+  detectedAngularVersion = angularDetected ? angularVersion || '' : '';
   return enriched;
 }
 
@@ -923,12 +1150,15 @@ async function detectTechnologiesForRepo(repoPath, options = {}) {
   const requestId = technologyRequestSeq;
   if (!trimmed) {
     detectedTechnologies = [];
+    detectedAngularVersion = '';
     lastDetectedRepo = '';
     technologyLoading = false;
     technologyStatusMessage = 'Select a repository to detect technologies.';
     technologyStatusLevel = 'info';
     renderTechnologyBadges();
     syncKnowledgeConfig();
+    syncMigrationConfig();
+    updateAngularVersionMessaging();
     return;
   }
   technologyLoading = true;
@@ -957,6 +1187,7 @@ async function detectTechnologiesForRepo(repoPath, options = {}) {
       return;
     }
     detectedTechnologies = [];
+    detectedAngularVersion = '';
     const message = err && err.message ? err.message : String(err);
     technologyStatusMessage = `Technology detection failed: ${message}`;
     technologyStatusLevel = 'warning';
@@ -965,6 +1196,8 @@ async function detectTechnologiesForRepo(repoPath, options = {}) {
       technologyLoading = false;
       renderTechnologyBadges();
       syncKnowledgeConfig();
+      syncMigrationConfig();
+      updateAngularVersionMessaging();
     }
   }
 }
@@ -1020,6 +1253,60 @@ function syncTargetConfig() {
   flowConfig.modernization.framework = targetFrameworkInput.value.trim();
   flowConfig.modernization.runtime = targetRuntimeInput.value.trim();
   flowConfig.modernization.notes = targetNotesInput.value.trim();
+}
+
+function syncMigrationConfig() {
+  if (!migrationConfig) {
+    return;
+  }
+  const source = migrationConfig.source || (migrationConfig.source = {});
+  const target = migrationConfig.target || (migrationConfig.target = {});
+  source.detectedVersion = detectedAngularVersion || '';
+  if (angularVersionSelect) {
+    const value = angularVersionSelect.value || 'auto';
+    source.version = value;
+  } else if (!source.version) {
+    source.version = 'auto';
+  }
+  if (angularModuleTypeSelect) {
+    source.moduleType = angularModuleTypeSelect.value || 'standalone';
+  } else if (!source.moduleType) {
+    source.moduleType = 'standalone';
+  }
+  if (angularBuildSystemSelect) {
+    source.buildSystem = angularBuildSystemSelect.value || 'angular-cli';
+  } else if (!source.buildSystem) {
+    source.buildSystem = 'angular-cli';
+  }
+
+  if (reactVersionSelect) {
+    target.version = reactVersionSelect.value || '18';
+  } else if (!target.version) {
+    target.version = '18';
+  }
+  if (reactComponentPatternSelect) {
+    target.componentPattern = reactComponentPatternSelect.value || 'functional-hooks';
+  } else if (!target.componentPattern) {
+    target.componentPattern = 'functional-hooks';
+  }
+  if (reactStateManagementSelect) {
+    target.stateManagement = reactStateManagementSelect.value || 'redux-toolkit';
+  } else if (!target.stateManagement) {
+    target.stateManagement = 'redux-toolkit';
+  }
+  if (reactRoutingSelect) {
+    target.routing = reactRoutingSelect.value || 'react-router';
+  } else if (!target.routing) {
+    target.routing = 'react-router';
+  }
+  if (reactUiLibrariesSelect) {
+    const libraries = Array.from(reactUiLibrariesSelect.selectedOptions || [])
+      .map(option => option.value)
+      .filter(Boolean);
+    target.uiLibraries = libraries;
+  } else if (!Array.isArray(target.uiLibraries)) {
+    target.uiLibraries = [];
+  }
 }
 
 function resetUploadProgress() {

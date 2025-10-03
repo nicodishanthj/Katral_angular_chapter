@@ -1,32 +1,22 @@
 const knowledgeFlows = new Set(['knowledge-base', 'chat-with-code', 'doc-generation', 'code-conversion']);
 const modernizationFlows = new Set(['code-conversion']);
-const angularMigrationFlows = new Set([
-  'component-alignment',
-  'state-management',
-  'routing-strategy'
-]);
+const angularMigrationFlows = new Set(['angular-react-migration']);
 
 const migrationConfig = {
   source: {
     framework: 'Angular',
-    version: '17',
-    patterns: {
-      stateManagement: 'NgRx',
-      componentArchitecture: 'Standalone Components'
-    }
+    version: 'auto',
+    detectedVersion: '',
+    moduleType: 'standalone',
+    buildSystem: 'angular-cli'
   },
   target: {
     framework: 'React',
     version: '18',
-    patterns: {
-      stateManagement: 'Redux Toolkit',
-      componentArchitecture: 'Functional Components with Hooks'
-    }
-  },
-  preferences: {
-    routing: 'React Router',
-    styling: 'CSS Modules',
-    patterns: ['smart-container', 'presentational-components']
+    componentPattern: 'functional-hooks',
+    stateManagement: 'redux-toolkit',
+    routing: 'react-router',
+    uiLibraries: ['mui']
   }
 };
 
