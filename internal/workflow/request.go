@@ -7,6 +7,25 @@ import (
 	"strings"
 )
 
+func cleanMapping(mapping map[string]string) map[string]string {
+	if len(mapping) == 0 {
+		return nil
+	}
+	cleaned := make(map[string]string, len(mapping))
+	for pattern, target := range mapping {
+		key := strings.TrimSpace(pattern)
+		value := strings.TrimSpace(target)
+		if key == "" || value == "" {
+			continue
+		}
+		cleaned[key] = value
+	}
+	if len(cleaned) == 0 {
+		return nil
+	}
+	return cleaned
+}
+
 func normalizeRequest(req Request) (Request, error) {
 	req.ProjectID = strings.TrimSpace(req.ProjectID)
 	if req.ProjectID == "" {
@@ -83,21 +102,12 @@ func normalizeRequest(req Request) (Request, error) {
 		req.MigrationConfig.ReactTargetRoot = strings.TrimSpace(req.MigrationConfig.ReactTargetRoot)
 		req.MigrationConfig.ReactVersion = strings.TrimSpace(req.MigrationConfig.ReactVersion)
 
-		if len(req.MigrationConfig.PatternMapping) > 0 {
-			cleaned := make(map[string]string, len(req.MigrationConfig.PatternMapping))
-			for pattern, mapping := range req.MigrationConfig.PatternMapping {
-				key := strings.TrimSpace(pattern)
-				value := strings.TrimSpace(mapping)
-				if key != "" && value != "" {
-					cleaned[key] = value
-				}
-			}
-			if len(cleaned) == 0 {
-				req.MigrationConfig.PatternMapping = nil
-			} else {
-				req.MigrationConfig.PatternMapping = cleaned
-			}
-		}
+		req.MigrationConfig.PatternMapping = cleanMapping(req.MigrationConfig.PatternMapping)
+		req.MigrationConfig.ComponentLifecycleMapping = cleanMapping(req.MigrationConfig.ComponentLifecycleMapping)
+		req.MigrationConfig.DirectiveConversionMapping = cleanMapping(req.MigrationConfig.DirectiveConversionMapping)
+		req.MigrationConfig.ServiceContextMapping = cleanMapping(req.MigrationConfig.ServiceContextMapping)
+		req.MigrationConfig.PipeConversionMapping = cleanMapping(req.MigrationConfig.PipeConversionMapping)
+		req.MigrationConfig.GuardRouteMapping = cleanMapping(req.MigrationConfig.GuardRouteMapping)
 
 		if req.MigrationConfig.AngularSourceRoot == "" {
 			return Request{}, fmt.Errorf("angular source root required for migration")
