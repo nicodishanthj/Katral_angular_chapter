@@ -94,11 +94,16 @@ type TargetConfig struct {
 }
 
 type MigrationConfig struct {
-	AngularSourceRoot string            `json:"angular_source_root"`
-	AngularVersion    string            `json:"angular_version"`
-	ReactTargetRoot   string            `json:"react_target_root"`
-	ReactVersion      string            `json:"react_version"`
-	PatternMapping    map[string]string `json:"pattern_mapping,omitempty"`
+	AngularSourceRoot          string            `json:"angular_source_root"`
+	AngularVersion             string            `json:"angular_version"`
+	ReactTargetRoot            string            `json:"react_target_root"`
+	ReactVersion               string            `json:"react_version"`
+	PatternMapping             map[string]string `json:"pattern_mapping,omitempty"`
+	ComponentLifecycleMapping  map[string]string `json:"component_lifecycle_mapping,omitempty"`
+	DirectiveConversionMapping map[string]string `json:"directive_conversion_mapping,omitempty"`
+	ServiceContextMapping      map[string]string `json:"service_context_mapping,omitempty"`
+	PipeConversionMapping      map[string]string `json:"pipe_conversion_mapping,omitempty"`
+	GuardRouteMapping          map[string]string `json:"guard_route_mapping,omitempty"`
 }
 
 type Request struct {
