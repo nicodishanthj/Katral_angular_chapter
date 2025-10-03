@@ -664,6 +664,14 @@ func aggregateProgramDocs(docs []kb.Doc) map[string]*kb.ProgramDoc {
 			program.FunctionalPrompts = append(program.FunctionalPrompts, doc)
 		case "documentation_technical_spec":
 			program.TechnicalPrompts = append(program.TechnicalPrompts, doc)
+		case "documentation_migration_assessment":
+			program.MigrationAssessments = append(program.MigrationAssessments, doc)
+		case "documentation_component_mapping":
+			program.ComponentMappings = append(program.ComponentMappings, doc)
+		case "documentation_api_compatibility":
+			program.APICompatibility = append(program.APICompatibility, doc)
+		case "documentation_migration_timeline":
+			program.MigrationTimelines = append(program.MigrationTimelines, doc)
 		}
 	}
 	for _, program := range programs {
@@ -787,6 +795,38 @@ func aggregateProgramDocs(docs []kb.Doc) map[string]*kb.ProgramDoc {
 			}
 			return left.SourcePath < right.SourcePath
 		})
+		sort.Slice(program.MigrationAssessments, func(i, j int) bool {
+			left := program.MigrationAssessments[i]
+			right := program.MigrationAssessments[j]
+			if left.SourcePath == right.SourcePath {
+				return left.ID < right.ID
+			}
+			return left.SourcePath < right.SourcePath
+		})
+		sort.Slice(program.ComponentMappings, func(i, j int) bool {
+			left := program.ComponentMappings[i]
+			right := program.ComponentMappings[j]
+			if left.SourcePath == right.SourcePath {
+				return left.ID < right.ID
+			}
+			return left.SourcePath < right.SourcePath
+		})
+		sort.Slice(program.APICompatibility, func(i, j int) bool {
+			left := program.APICompatibility[i]
+			right := program.APICompatibility[j]
+			if left.SourcePath == right.SourcePath {
+				return left.ID < right.ID
+			}
+			return left.SourcePath < right.SourcePath
+		})
+		sort.Slice(program.MigrationTimelines, func(i, j int) bool {
+			left := program.MigrationTimelines[i]
+			right := program.MigrationTimelines[j]
+			if left.SourcePath == right.SourcePath {
+				return left.ID < right.ID
+			}
+			return left.SourcePath < right.SourcePath
+		})
 	}
 	return programs
 }
@@ -843,6 +883,10 @@ func (r *Retriever) enrichProgramDoc(ctx context.Context, base kb.ProgramDoc, em
 	var businessPrompts []kb.Doc
 	var functionalPrompts []kb.Doc
 	var technicalPrompts []kb.Doc
+	var migrationAssessments []kb.Doc
+	var componentMappings []kb.Doc
+	var apiCompatibility []kb.Doc
+	var migrationTimelines []kb.Doc
 	for _, point := range points {
 		doc, ok := docsByID[point.ID]
 		if !ok {
@@ -882,6 +926,14 @@ func (r *Retriever) enrichProgramDoc(ctx context.Context, base kb.ProgramDoc, em
 			functionalPrompts = appendIfMissing(functionalPrompts, doc)
 		case "documentation_technical_spec":
 			technicalPrompts = appendIfMissing(technicalPrompts, doc)
+		case "documentation_migration_assessment":
+			migrationAssessments = appendIfMissing(migrationAssessments, doc)
+		case "documentation_component_mapping":
+			componentMappings = appendIfMissing(componentMappings, doc)
+		case "documentation_api_compatibility":
+			apiCompatibility = appendIfMissing(apiCompatibility, doc)
+		case "documentation_migration_timeline":
+			migrationTimelines = appendIfMissing(migrationTimelines, doc)
 		}
 	}
 	enriched := base
@@ -929,6 +981,18 @@ func (r *Retriever) enrichProgramDoc(ctx context.Context, base kb.ProgramDoc, em
 	}
 	if len(technicalPrompts) > 0 {
 		enriched.TechnicalPrompts = technicalPrompts
+	}
+	if len(migrationAssessments) > 0 {
+		enriched.MigrationAssessments = migrationAssessments
+	}
+	if len(componentMappings) > 0 {
+		enriched.ComponentMappings = componentMappings
+	}
+	if len(apiCompatibility) > 0 {
+		enriched.APICompatibility = apiCompatibility
+	}
+	if len(migrationTimelines) > 0 {
+		enriched.MigrationTimelines = migrationTimelines
 	}
 	return r.attachGraph(ctx, enriched)
 }

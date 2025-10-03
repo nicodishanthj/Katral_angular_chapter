@@ -16,14 +16,18 @@ import (
 )
 
 const (
-	docTypeSummary        = "documentation_summary"
-	docTypeCrossReference = "documentation_cross_reference"
-	docTypeImpact         = "documentation_impact_analysis"
-	docTypeProgramFlow    = "documentation_program_flow"
-	docTypeBusinessPrompt = "documentation_business_rules"
-	docTypeFunctionalSpec = "documentation_functional_spec"
-	docTypeTechnicalSpec  = "documentation_technical_spec"
-	metadataVersionKey    = "metadata_version"
+	docTypeSummary             = "documentation_summary"
+	docTypeCrossReference      = "documentation_cross_reference"
+	docTypeImpact              = "documentation_impact_analysis"
+	docTypeProgramFlow         = "documentation_program_flow"
+	docTypeBusinessPrompt      = "documentation_business_rules"
+	docTypeFunctionalSpec      = "documentation_functional_spec"
+	docTypeTechnicalSpec       = "documentation_technical_spec"
+	docTypeMigrationAssessment = "documentation_migration_assessment"
+	docTypeComponentMapping    = "documentation_component_mapping"
+	docTypeAPICompatibility    = "documentation_api_compatibility"
+	docTypeMigrationTimeline   = "documentation_migration_timeline"
+	metadataVersionKey         = "metadata_version"
 )
 
 type documentationTemplate struct {
@@ -66,13 +70,17 @@ func (m *Manager) enrichDocumentation(ctx context.Context, projectID string, doc
 	var generated []kb.Doc
 	changed := false
 	managedTypes := map[string]struct{}{
-		docTypeSummary:        {},
-		docTypeCrossReference: {},
-		docTypeImpact:         {},
-		docTypeProgramFlow:    {},
-		docTypeBusinessPrompt: {},
-		docTypeFunctionalSpec: {},
-		docTypeTechnicalSpec:  {},
+		docTypeSummary:             {},
+		docTypeCrossReference:      {},
+		docTypeImpact:              {},
+		docTypeProgramFlow:         {},
+		docTypeBusinessPrompt:      {},
+		docTypeFunctionalSpec:      {},
+		docTypeTechnicalSpec:       {},
+		docTypeMigrationAssessment: {},
+		docTypeComponentMapping:    {},
+		docTypeAPICompatibility:    {},
+		docTypeMigrationTimeline:   {},
 	}
 
 	buildErr := m.metadata.StreamPrograms(ctx, metadata.QueryOptions{ProjectID: projectID}, func(record metadata.ProgramRecord) error {
@@ -88,6 +96,10 @@ func (m *Manager) enrichDocumentation(ctx context.Context, projectID string, doc
 		businessID := documentationDocID(program, docTypeBusinessPrompt)
 		functionalID := documentationDocID(program, docTypeFunctionalSpec)
 		technicalID := documentationDocID(program, docTypeTechnicalSpec)
+		assessmentID := documentationDocID(program, docTypeMigrationAssessment)
+		mappingID := documentationDocID(program, docTypeComponentMapping)
+		compatibilityID := documentationDocID(program, docTypeAPICompatibility)
+		timelineID := documentationDocID(program, docTypeMigrationTimeline)
 
 		summaryDoc, summaryExists := existing[summaryID]
 		crossDoc, crossExists := existing[crossID]
@@ -96,16 +108,24 @@ func (m *Manager) enrichDocumentation(ctx context.Context, projectID string, doc
 		businessDoc, businessExists := existing[businessID]
 		functionalDoc, functionalExists := existing[functionalID]
 		technicalDoc, technicalExists := existing[technicalID]
+		assessmentDoc, assessmentExists := existing[assessmentID]
+		mappingDoc, mappingExists := existing[mappingID]
+		compatibilityDoc, compatibilityExists := existing[compatibilityID]
+		timelineDoc, timelineExists := existing[timelineID]
 
-		if summaryExists && crossExists && impactExists && flowExists && businessExists && functionalExists && technicalExists &&
+		if summaryExists && crossExists && impactExists && flowExists && businessExists && functionalExists && technicalExists && assessmentExists && mappingExists && compatibilityExists && timelineExists &&
 			docMatchesVersion(summaryDoc, version) &&
 			docMatchesVersion(crossDoc, version) &&
 			docMatchesVersion(impactDoc, version) &&
 			docMatchesVersion(flowDoc, version) &&
 			docMatchesVersion(businessDoc, version) &&
 			docMatchesVersion(functionalDoc, version) &&
-			docMatchesVersion(technicalDoc, version) {
-			generated = append(generated, summaryDoc, crossDoc, impactDoc, flowDoc, businessDoc, functionalDoc, technicalDoc)
+			docMatchesVersion(technicalDoc, version) &&
+			docMatchesVersion(assessmentDoc, version) &&
+			docMatchesVersion(mappingDoc, version) &&
+			docMatchesVersion(compatibilityDoc, version) &&
+			docMatchesVersion(timelineDoc, version) {
+			generated = append(generated, summaryDoc, crossDoc, impactDoc, flowDoc, businessDoc, functionalDoc, technicalDoc, assessmentDoc, mappingDoc, compatibilityDoc, timelineDoc)
 			return nil
 		}
 
@@ -215,6 +235,70 @@ func (m *Manager) enrichDocumentation(ctx context.Context, projectID string, doc
 			changed = true
 		}
 		generated = append(generated, technicalPrompt)
+
+		assessmentPrompt := buildMigrationAssessmentDoc(template)
+		assessmentPrompt.ID = assessmentID
+		assessmentPrompt.Program = program
+		assessmentPrompt.Type = docTypeMigrationAssessment
+		assessmentPrompt.SourcePath = template.Source
+		if assessmentPrompt.SourcePath == "" {
+			assessmentPrompt.SourcePath = record.SourcePath
+		}
+		assessmentPrompt.Summary = fmt.Sprintf("Migration assessment for %s", program)
+		assessmentPrompt.Extra = mergeExtra(assessmentPrompt.Extra, version)
+		assessmentPrompt.Fingerprint = kb.ComputeFingerprint(assessmentPrompt)
+		if !assessmentExists || assessmentPrompt.Fingerprint != assessmentDoc.Fingerprint {
+			changed = true
+		}
+		generated = append(generated, assessmentPrompt)
+
+		mappingPrompt := buildComponentMappingDoc(template)
+		mappingPrompt.ID = mappingID
+		mappingPrompt.Program = program
+		mappingPrompt.Type = docTypeComponentMapping
+		mappingPrompt.SourcePath = template.Source
+		if mappingPrompt.SourcePath == "" {
+			mappingPrompt.SourcePath = record.SourcePath
+		}
+		mappingPrompt.Summary = fmt.Sprintf("Component mapping guidance for %s", program)
+		mappingPrompt.Extra = mergeExtra(mappingPrompt.Extra, version)
+		mappingPrompt.Fingerprint = kb.ComputeFingerprint(mappingPrompt)
+		if !mappingExists || mappingPrompt.Fingerprint != mappingDoc.Fingerprint {
+			changed = true
+		}
+		generated = append(generated, mappingPrompt)
+
+		compatibilityPrompt := buildAPICompatibilityDoc(template)
+		compatibilityPrompt.ID = compatibilityID
+		compatibilityPrompt.Program = program
+		compatibilityPrompt.Type = docTypeAPICompatibility
+		compatibilityPrompt.SourcePath = template.Source
+		if compatibilityPrompt.SourcePath == "" {
+			compatibilityPrompt.SourcePath = record.SourcePath
+		}
+		compatibilityPrompt.Summary = fmt.Sprintf("API compatibility matrix for %s", program)
+		compatibilityPrompt.Extra = mergeExtra(compatibilityPrompt.Extra, version)
+		compatibilityPrompt.Fingerprint = kb.ComputeFingerprint(compatibilityPrompt)
+		if !compatibilityExists || compatibilityPrompt.Fingerprint != compatibilityDoc.Fingerprint {
+			changed = true
+		}
+		generated = append(generated, compatibilityPrompt)
+
+		timelinePrompt := buildMigrationTimelineDoc(template)
+		timelinePrompt.ID = timelineID
+		timelinePrompt.Program = program
+		timelinePrompt.Type = docTypeMigrationTimeline
+		timelinePrompt.SourcePath = template.Source
+		if timelinePrompt.SourcePath == "" {
+			timelinePrompt.SourcePath = record.SourcePath
+		}
+		timelinePrompt.Summary = fmt.Sprintf("Migration timeline for %s", program)
+		timelinePrompt.Extra = mergeExtra(timelinePrompt.Extra, version)
+		timelinePrompt.Fingerprint = kb.ComputeFingerprint(timelinePrompt)
+		if !timelineExists || timelinePrompt.Fingerprint != timelineDoc.Fingerprint {
+			changed = true
+		}
+		generated = append(generated, timelinePrompt)
 		return nil
 	})
 	if buildErr != nil {
@@ -538,6 +622,96 @@ func buildTechnicalSpecDoc(t documentationTemplate) kb.Doc {
 		{Title: "Outputs", Lines: t.Outputs},
 	}
 	content := t.renderDoc("Technical Specification Prompt Template", instructions, sections)
+	return kb.Doc{
+		Content:      content,
+		Technologies: t.Technologies,
+		Inputs:       t.Inputs,
+		Outputs:      t.Outputs,
+		Calls:        t.Calls,
+	}
+}
+
+func buildMigrationAssessmentDoc(t documentationTemplate) kb.Doc {
+	instructions := []string{
+		"Evaluate modernization readiness based on technologies, integrations, and data complexity.",
+		"Identify high-risk dependencies or business rules that could delay migration efforts.",
+		"Recommend mitigation strategies and prerequisites to reduce migration risk.",
+	}
+	sections := []templateSection{
+		{Title: "Legacy technologies", Lines: t.Technologies},
+		{Title: "External dependencies", Lines: t.Calls},
+		{Title: "Key data models", Lines: t.DataModels},
+		{Title: "Business constraints", Lines: t.Business},
+		{Title: "Functional highlights", Lines: t.Functional},
+	}
+	content := t.renderDoc("Migration Assessment Prompt Template", instructions, sections)
+	return kb.Doc{
+		Content:      content,
+		Technologies: t.Technologies,
+		Inputs:       t.Inputs,
+		Outputs:      t.Outputs,
+		Calls:        t.Calls,
+	}
+}
+
+func buildComponentMappingDoc(t documentationTemplate) kb.Doc {
+	instructions := []string{
+		"Map legacy responsibilities to proposed target components or services.",
+		"Highlight data structures or DTOs that influence component boundaries.",
+		"Call out integration points that require shared contracts across components.",
+	}
+	sections := []templateSection{
+		{Title: "Functional capabilities", Lines: t.Functional},
+		{Title: "Control flow checkpoints", Lines: t.FlowSteps},
+		{Title: "Data entities and DTOs", Lines: append(append([]string{}, t.DataModels...), t.DTOs...)},
+		{Title: "External integrations", Lines: t.Calls},
+	}
+	content := t.renderDoc("Component Mapping Prompt Template", instructions, sections)
+	return kb.Doc{
+		Content:      content,
+		Technologies: t.Technologies,
+		Inputs:       t.Inputs,
+		Outputs:      t.Outputs,
+		Calls:        t.Calls,
+	}
+}
+
+func buildAPICompatibilityDoc(t documentationTemplate) kb.Doc {
+	instructions := []string{
+		"Compare legacy inputs and outputs with the target API expectations.",
+		"List DTOs or message schemas that require translation or remain compatible.",
+		"Document breaking changes, required adapters, and validation rules affecting consumers.",
+	}
+	sections := []templateSection{
+		{Title: "Legacy inputs", Lines: t.Inputs},
+		{Title: "Legacy outputs", Lines: t.Outputs},
+		{Title: "DTO and schema inventory", Lines: t.DTOs},
+		{Title: "External API calls", Lines: t.Calls},
+		{Title: "Business and validation rules", Lines: t.Business},
+	}
+	content := t.renderDoc("API Compatibility Matrix Prompt Template", instructions, sections)
+	return kb.Doc{
+		Content:      content,
+		Technologies: t.Technologies,
+		Inputs:       t.Inputs,
+		Outputs:      t.Outputs,
+		Calls:        t.Calls,
+	}
+}
+
+func buildMigrationTimelineDoc(t documentationTemplate) kb.Doc {
+	instructions := []string{
+		"Outline migration phases from assessment through cutover and validation.",
+		"Note dependencies, prerequisites, and parallel workstreams for each phase.",
+		"Call out business events or functional checkpoints that influence scheduling.",
+	}
+	sections := []templateSection{
+		{Title: "Key flow milestones", Lines: t.FlowSteps},
+		{Title: "Technical prerequisites", Lines: t.Technical},
+		{Title: "Business readiness factors", Lines: t.Business},
+		{Title: "Integration checkpoints", Lines: t.Calls},
+	}
+	content := t.renderDoc("Migration Timeline Prompt Template", instructions, sections)
 	return kb.Doc{
 		Content:      content,
 		Technologies: t.Technologies,

@@ -53,6 +53,10 @@ type ProgramDoc struct {
 	BusinessRulePrompts    []Doc              `json:"documentation_business_rules,omitempty"`
 	FunctionalPrompts      []Doc              `json:"documentation_functional_specs,omitempty"`
 	TechnicalPrompts       []Doc              `json:"documentation_technical_specs,omitempty"`
+	MigrationAssessments   []Doc              `json:"documentation_migration_assessments,omitempty"`
+	ComponentMappings      []Doc              `json:"documentation_component_mappings,omitempty"`
+	APICompatibility       []Doc              `json:"documentation_api_compatibility_matrices,omitempty"`
+	MigrationTimelines     []Doc              `json:"documentation_migration_timelines,omitempty"`
 	Dependencies           []GraphNeighbor    `json:"dependencies,omitempty"`
 	Impacts                []GraphNeighbor    `json:"impacts,omitempty"`
 	Related                []GraphNeighbor    `json:"related,omitempty"`

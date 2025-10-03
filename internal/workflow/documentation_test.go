@@ -106,7 +106,16 @@ func TestSummarizeDocumentationGeneratesArtifactsIncrementally(t *testing.T) {
 	if want := "documentation summaries"; !contains(summary, want) {
 		t.Fatalf("summary missing %q: %s", want, summary)
 	}
-	for _, want := range []string{"program flow prompts", "business rule prompts", "functional specification prompts", "technical specification prompts"} {
+	for _, want := range []string{
+		"program flow prompts",
+		"business rule prompts",
+		"functional specification prompts",
+		"technical specification prompts",
+		"migration assessment reports",
+		"component mapping guides",
+		"API compatibility matrices",
+		"migration timeline roadmaps",
+	} {
 		if !contains(summary, want) {
 			t.Fatalf("summary missing %q: %s", want, summary)
 		}
@@ -119,6 +128,7 @@ func TestSummarizeDocumentationGeneratesArtifactsIncrementally(t *testing.T) {
 	var crossFound, impactFound bool
 	var summaryDoc kb.Doc
 	var flowPromptDoc, businessPromptDoc, functionalPromptDoc, technicalPromptDoc kb.Doc
+	var migrationAssessmentDoc, componentMappingDoc, apiCompatibilityDoc, migrationTimelineDoc kb.Doc
 	for _, doc := range generated {
 		switch doc.Type {
 		case docTypeCrossReference:
@@ -141,6 +151,14 @@ func TestSummarizeDocumentationGeneratesArtifactsIncrementally(t *testing.T) {
 			functionalPromptDoc = doc
 		case docTypeTechnicalSpec:
 			technicalPromptDoc = doc
+		case docTypeMigrationAssessment:
+			migrationAssessmentDoc = doc
+		case docTypeComponentMapping:
+			componentMappingDoc = doc
+		case docTypeAPICompatibility:
+			apiCompatibilityDoc = doc
+		case docTypeMigrationTimeline:
+			migrationTimelineDoc = doc
 		}
 	}
 	if !crossFound || !impactFound {
@@ -160,6 +178,18 @@ func TestSummarizeDocumentationGeneratesArtifactsIncrementally(t *testing.T) {
 	}
 	if technicalPromptDoc.ID == "" {
 		t.Fatalf("expected technical specification prompt to be generated")
+	}
+	if migrationAssessmentDoc.ID == "" {
+		t.Fatalf("expected migration assessment prompt to be generated")
+	}
+	if componentMappingDoc.ID == "" {
+		t.Fatalf("expected component mapping prompt to be generated")
+	}
+	if apiCompatibilityDoc.ID == "" {
+		t.Fatalf("expected API compatibility prompt to be generated")
+	}
+	if migrationTimelineDoc.ID == "" {
+		t.Fatalf("expected migration timeline prompt to be generated")
 	}
 	if !contains(summaryDoc.Content, "technical specifications") {
 		t.Fatalf("expected technical specifications section in summary doc: %q", summaryDoc.Content)
@@ -185,6 +215,18 @@ func TestSummarizeDocumentationGeneratesArtifactsIncrementally(t *testing.T) {
 	if !contains(technicalPromptDoc.Content, "Technical Specification Prompt Template") || !contains(technicalPromptDoc.Content, "Data model considerations") {
 		t.Fatalf("expected technical prompt to mention data model considerations: %q", technicalPromptDoc.Content)
 	}
+	if !contains(migrationAssessmentDoc.Content, "Migration Assessment Prompt Template") || !contains(migrationAssessmentDoc.Content, "Legacy technologies") {
+		t.Fatalf("expected migration assessment prompt structure: %q", migrationAssessmentDoc.Content)
+	}
+	if !contains(componentMappingDoc.Content, "Component Mapping Prompt Template") || !contains(componentMappingDoc.Content, "Functional capabilities") {
+		t.Fatalf("expected component mapping prompt structure: %q", componentMappingDoc.Content)
+	}
+	if !contains(apiCompatibilityDoc.Content, "API Compatibility Matrix Prompt Template") || !contains(apiCompatibilityDoc.Content, "Legacy inputs") {
+		t.Fatalf("expected API compatibility prompt structure: %q", apiCompatibilityDoc.Content)
+	}
+	if !contains(migrationTimelineDoc.Content, "Migration Timeline Prompt Template") || !contains(migrationTimelineDoc.Content, "Key flow milestones") {
+		t.Fatalf("expected migration timeline prompt structure: %q", migrationTimelineDoc.Content)
+	}
 
 	mgr.workflowMu.Lock()
 	artifacts := mgr.workflows[projectID].state.DocumentationArtifacts
@@ -200,6 +242,10 @@ func TestSummarizeDocumentationGeneratesArtifactsIncrementally(t *testing.T) {
 		docTypeBusinessPrompt,
 		docTypeFunctionalSpec,
 		docTypeTechnicalSpec,
+		docTypeMigrationAssessment,
+		docTypeComponentMapping,
+		docTypeAPICompatibility,
+		docTypeMigrationTimeline,
 	} {
 		path, ok := artifacts[kind]
 		if !ok {
