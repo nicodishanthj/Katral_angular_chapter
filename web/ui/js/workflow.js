@@ -36,6 +36,10 @@ const artifactLabelMap = {
   documentation_component_mapping: 'Component Mapping Guides',
   documentation_api_compatibility: 'API Compatibility Matrices',
   documentation_migration_timeline: 'Migration Timeline Roadmaps',
+  documentation_migration_complexity: 'Migration Complexity Analyses',
+  documentation_pattern_recommendations: 'Pattern Recommendation Guides',
+  documentation_migrated_code_review: 'Migrated Component Code Reviews',
+  documentation_performance_comparison: 'Performance Comparison Analyses',
   conversion_summary: 'Conversion Summaries',
   conversion_mapping: 'Conversion Mappings',
   conversion_source: 'Conversion Sources'

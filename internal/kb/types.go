@@ -57,6 +57,10 @@ type ProgramDoc struct {
 	ComponentMappings      []Doc              `json:"documentation_component_mappings,omitempty"`
 	APICompatibility       []Doc              `json:"documentation_api_compatibility_matrices,omitempty"`
 	MigrationTimelines     []Doc              `json:"documentation_migration_timelines,omitempty"`
+	MigrationComplexities  []Doc              `json:"documentation_migration_complexities,omitempty"`
+	PatternRecommendations []Doc              `json:"documentation_pattern_recommendations,omitempty"`
+	MigratedCodeReviews    []Doc              `json:"documentation_migrated_code_reviews,omitempty"`
+	PerformanceComparisons []Doc              `json:"documentation_performance_comparisons,omitempty"`
 	Dependencies           []GraphNeighbor    `json:"dependencies,omitempty"`
 	Impacts                []GraphNeighbor    `json:"impacts,omitempty"`
 	Related                []GraphNeighbor    `json:"related,omitempty"`

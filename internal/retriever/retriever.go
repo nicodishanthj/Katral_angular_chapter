@@ -672,6 +672,14 @@ func aggregateProgramDocs(docs []kb.Doc) map[string]*kb.ProgramDoc {
 			program.APICompatibility = append(program.APICompatibility, doc)
 		case "documentation_migration_timeline":
 			program.MigrationTimelines = append(program.MigrationTimelines, doc)
+		case "documentation_migration_complexity":
+			program.MigrationComplexities = append(program.MigrationComplexities, doc)
+		case "documentation_pattern_recommendations":
+			program.PatternRecommendations = append(program.PatternRecommendations, doc)
+		case "documentation_migrated_code_review":
+			program.MigratedCodeReviews = append(program.MigratedCodeReviews, doc)
+		case "documentation_performance_comparison":
+			program.PerformanceComparisons = append(program.PerformanceComparisons, doc)
 		}
 	}
 	for _, program := range programs {
@@ -827,6 +835,38 @@ func aggregateProgramDocs(docs []kb.Doc) map[string]*kb.ProgramDoc {
 			}
 			return left.SourcePath < right.SourcePath
 		})
+		sort.Slice(program.MigrationComplexities, func(i, j int) bool {
+			left := program.MigrationComplexities[i]
+			right := program.MigrationComplexities[j]
+			if left.SourcePath == right.SourcePath {
+				return left.ID < right.ID
+			}
+			return left.SourcePath < right.SourcePath
+		})
+		sort.Slice(program.PatternRecommendations, func(i, j int) bool {
+			left := program.PatternRecommendations[i]
+			right := program.PatternRecommendations[j]
+			if left.SourcePath == right.SourcePath {
+				return left.ID < right.ID
+			}
+			return left.SourcePath < right.SourcePath
+		})
+		sort.Slice(program.MigratedCodeReviews, func(i, j int) bool {
+			left := program.MigratedCodeReviews[i]
+			right := program.MigratedCodeReviews[j]
+			if left.SourcePath == right.SourcePath {
+				return left.ID < right.ID
+			}
+			return left.SourcePath < right.SourcePath
+		})
+		sort.Slice(program.PerformanceComparisons, func(i, j int) bool {
+			left := program.PerformanceComparisons[i]
+			right := program.PerformanceComparisons[j]
+			if left.SourcePath == right.SourcePath {
+				return left.ID < right.ID
+			}
+			return left.SourcePath < right.SourcePath
+		})
 	}
 	return programs
 }
@@ -887,6 +927,10 @@ func (r *Retriever) enrichProgramDoc(ctx context.Context, base kb.ProgramDoc, em
 	var componentMappings []kb.Doc
 	var apiCompatibility []kb.Doc
 	var migrationTimelines []kb.Doc
+	var migrationComplexities []kb.Doc
+	var patternRecommendations []kb.Doc
+	var migratedCodeReviews []kb.Doc
+	var performanceComparisons []kb.Doc
 	for _, point := range points {
 		doc, ok := docsByID[point.ID]
 		if !ok {
@@ -934,6 +978,14 @@ func (r *Retriever) enrichProgramDoc(ctx context.Context, base kb.ProgramDoc, em
 			apiCompatibility = appendIfMissing(apiCompatibility, doc)
 		case "documentation_migration_timeline":
 			migrationTimelines = appendIfMissing(migrationTimelines, doc)
+		case "documentation_migration_complexity":
+			migrationComplexities = appendIfMissing(migrationComplexities, doc)
+		case "documentation_pattern_recommendations":
+			patternRecommendations = appendIfMissing(patternRecommendations, doc)
+		case "documentation_migrated_code_review":
+			migratedCodeReviews = appendIfMissing(migratedCodeReviews, doc)
+		case "documentation_performance_comparison":
+			performanceComparisons = appendIfMissing(performanceComparisons, doc)
 		}
 	}
 	enriched := base
@@ -993,6 +1045,18 @@ func (r *Retriever) enrichProgramDoc(ctx context.Context, base kb.ProgramDoc, em
 	}
 	if len(migrationTimelines) > 0 {
 		enriched.MigrationTimelines = migrationTimelines
+	}
+	if len(migrationComplexities) > 0 {
+		enriched.MigrationComplexities = migrationComplexities
+	}
+	if len(patternRecommendations) > 0 {
+		enriched.PatternRecommendations = patternRecommendations
+	}
+	if len(migratedCodeReviews) > 0 {
+		enriched.MigratedCodeReviews = migratedCodeReviews
+	}
+	if len(performanceComparisons) > 0 {
+		enriched.PerformanceComparisons = performanceComparisons
 	}
 	return r.attachGraph(ctx, enriched)
 }

@@ -115,6 +115,10 @@ func TestSummarizeDocumentationGeneratesArtifactsIncrementally(t *testing.T) {
 		"component mapping guides",
 		"API compatibility matrices",
 		"migration timeline roadmaps",
+		"migration complexity analyses",
+		"pattern recommendation guides",
+		"migrated component code reviews",
+		"performance comparison analyses",
 	} {
 		if !contains(summary, want) {
 			t.Fatalf("summary missing %q: %s", want, summary)
@@ -129,6 +133,8 @@ func TestSummarizeDocumentationGeneratesArtifactsIncrementally(t *testing.T) {
 	var summaryDoc kb.Doc
 	var flowPromptDoc, businessPromptDoc, functionalPromptDoc, technicalPromptDoc kb.Doc
 	var migrationAssessmentDoc, componentMappingDoc, apiCompatibilityDoc, migrationTimelineDoc kb.Doc
+	var migrationComplexityDoc, patternRecommendationsDoc kb.Doc
+	var migratedCodeReviewDoc, performanceComparisonDoc kb.Doc
 	for _, doc := range generated {
 		switch doc.Type {
 		case docTypeCrossReference:
@@ -159,6 +165,14 @@ func TestSummarizeDocumentationGeneratesArtifactsIncrementally(t *testing.T) {
 			apiCompatibilityDoc = doc
 		case docTypeMigrationTimeline:
 			migrationTimelineDoc = doc
+		case docTypeMigrationComplexity:
+			migrationComplexityDoc = doc
+		case docTypePatternRecommendations:
+			patternRecommendationsDoc = doc
+		case docTypeMigratedCodeReview:
+			migratedCodeReviewDoc = doc
+		case docTypePerformanceComparison:
+			performanceComparisonDoc = doc
 		}
 	}
 	if !crossFound || !impactFound {
@@ -190,6 +204,18 @@ func TestSummarizeDocumentationGeneratesArtifactsIncrementally(t *testing.T) {
 	}
 	if migrationTimelineDoc.ID == "" {
 		t.Fatalf("expected migration timeline prompt to be generated")
+	}
+	if migrationComplexityDoc.ID == "" {
+		t.Fatalf("expected migration complexity prompt to be generated")
+	}
+	if patternRecommendationsDoc.ID == "" {
+		t.Fatalf("expected pattern recommendation prompt to be generated")
+	}
+	if migratedCodeReviewDoc.ID == "" {
+		t.Fatalf("expected migrated component code review prompt to be generated")
+	}
+	if performanceComparisonDoc.ID == "" {
+		t.Fatalf("expected performance comparison prompt to be generated")
 	}
 	if !contains(summaryDoc.Content, "technical specifications") {
 		t.Fatalf("expected technical specifications section in summary doc: %q", summaryDoc.Content)
@@ -227,6 +253,18 @@ func TestSummarizeDocumentationGeneratesArtifactsIncrementally(t *testing.T) {
 	if !contains(migrationTimelineDoc.Content, "Migration Timeline Prompt Template") || !contains(migrationTimelineDoc.Content, "Key flow milestones") {
 		t.Fatalf("expected migration timeline prompt structure: %q", migrationTimelineDoc.Content)
 	}
+	if !contains(migrationComplexityDoc.Content, "Migration Complexity Assessment Prompt Template") || !contains(migrationComplexityDoc.Content, "Complexity drivers") {
+		t.Fatalf("expected migration complexity prompt structure: %q", migrationComplexityDoc.Content)
+	}
+	if !contains(patternRecommendationsDoc.Content, "Pattern Recommendation Prompt Template") || !contains(patternRecommendationsDoc.Content, "Lifecycle and flow checkpoints") {
+		t.Fatalf("expected pattern recommendation prompt structure: %q", patternRecommendationsDoc.Content)
+	}
+	if !contains(migratedCodeReviewDoc.Content, "Migrated Component Code Review Prompt Template") || !contains(migratedCodeReviewDoc.Content, "Data bindings and DTOs") {
+		t.Fatalf("expected migrated component code review prompt structure: %q", migratedCodeReviewDoc.Content)
+	}
+	if !contains(performanceComparisonDoc.Content, "Performance Comparison Prompt Template") || !contains(performanceComparisonDoc.Content, "Integration latency factors") {
+		t.Fatalf("expected performance comparison prompt structure: %q", performanceComparisonDoc.Content)
+	}
 
 	mgr.workflowMu.Lock()
 	artifacts := mgr.workflows[projectID].state.DocumentationArtifacts
@@ -246,6 +284,10 @@ func TestSummarizeDocumentationGeneratesArtifactsIncrementally(t *testing.T) {
 		docTypeComponentMapping,
 		docTypeAPICompatibility,
 		docTypeMigrationTimeline,
+		docTypeMigrationComplexity,
+		docTypePatternRecommendations,
+		docTypeMigratedCodeReview,
+		docTypePerformanceComparison,
 	} {
 		path, ok := artifacts[kind]
 		if !ok {
