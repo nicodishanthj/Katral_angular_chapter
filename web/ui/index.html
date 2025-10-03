@@ -92,6 +92,24 @@
                 <p>Ask targeted questions, triage bugs, or explore modernization ideas with Retrieval-Augmented Generation on your source base.</p>
               </button>
             </div>
+            <div id="targetConfigSection" class="config-section" hidden>
+              <h3>Target Modernization Settings</h3>
+              <p class="config-help">Capture the modernization targets your workflow should pursue. These settings flow into the workflow kickoff so downstream agents understand the runtime expectations.</p>
+              <label for="targetLanguage">Target Language</label>
+              <select id="targetLanguage"></select>
+              <label for="targetVersion">Language Version</label>
+              <select id="targetVersion"></select>
+              <label for="targetFramework">Framework</label>
+              <select id="targetFramework"></select>
+              <label for="targetRuntime">Runtime / Platform</label>
+              <select id="targetRuntime"></select>
+              <label for="targetNotes">Additional Notes</label>
+              <textarea id="targetNotes" placeholder="List integrations, packaging requirements, or modernization guardrails..."></textarea>
+              <div class="button-group">
+                <button id="targetConfigApply" class="button-secondary">Save Target Configuration</button>
+              </div>
+              <div id="targetConfigStatus" class="status"></div>
+            </div>
           </section>
 
           <section id="ingest" class="panel">
@@ -214,24 +232,6 @@
                 ></textarea>
                 <p class="config-hint">Use one rule per line in the format <code>AngularConcept =&gt; ReactStrategy</code>. Lines beginning with <code>#</code> are ignored.</p>
               </div>
-            </div>
-            <div id="targetConfigSection" class="config-section" hidden>
-              <h3>Target Modernization Settings</h3>
-              <p class="config-help">Capture the modernization targets your workflow should pursue. These settings flow into the workflow kickoff so downstream agents understand the runtime expectations.</p>
-              <label for="targetLanguage">Target Language</label>
-              <select id="targetLanguage"></select>
-              <label for="targetVersion">Language Version</label>
-              <select id="targetVersion"></select>
-              <label for="targetFramework">Framework</label>
-              <select id="targetFramework"></select>
-              <label for="targetRuntime">Runtime / Platform</label>
-              <select id="targetRuntime"></select>
-              <label for="targetNotes">Additional Notes</label>
-              <textarea id="targetNotes" placeholder="List integrations, packaging requirements, or modernization guardrails..."></textarea>
-              <div class="button-group">
-                <button id="targetConfigApply" class="button-secondary">Save Target Configuration</button>
-              </div>
-              <div id="targetConfigStatus" class="status"></div>
             </div>
           </section>
 
