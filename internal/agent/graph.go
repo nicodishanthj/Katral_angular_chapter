@@ -72,6 +72,10 @@ func buildSystemPrompt(opts *RunOptions) string {
 	var contextParts []string
 	if opts.Flow != "" {
 		contextParts = append(contextParts, fmt.Sprintf("Active flow: %s.", opts.Flow))
+		if strings.EqualFold(strings.TrimSpace(opts.Flow), "angular-react-migration") {
+			contextParts = append(contextParts,
+				"Focus areas: deliver migration complexity assessments, recommend React patterns to replace Angular constructs, review migrated component code for parity, and compare Angular versus React performance considerations.")
+		}
 	}
 	if kc := opts.Knowledge; kc != nil {
 		var segments []string
@@ -225,6 +229,9 @@ func describeKnowledgeQuery(opts *RunOptions) string {
 	var parts []string
 	if opts.Flow != "" {
 		parts = append(parts, fmt.Sprintf("Flow:%s", opts.Flow))
+		if strings.EqualFold(strings.TrimSpace(opts.Flow), "angular-react-migration") {
+			parts = append(parts, "Focus:MigrationComplexity;PatternRecommendations;MigratedComponentCodeReview;PerformanceComparison")
+		}
 	}
 	if kc := opts.Knowledge; kc != nil {
 		if kc.Repo != "" {
