@@ -72,6 +72,83 @@ func TestManagerStatusReturnsPersistedState(t *testing.T) {
 	}
 }
 
+func TestCloneStateCopiesMigrationConfig(t *testing.T) {
+	t.Helper()
+
+	state := State{
+		Request: Request{
+			ProjectID: "proj-migrate",
+			MigrationConfig: &MigrationConfig{
+				AngularSourceRoot: "./src/app",
+				AngularVersion:    "16",
+				ReactTargetRoot:   "./react",
+				ReactVersion:      "18",
+				PatternMapping: map[string]string{
+					"component": "Component",
+				},
+				ComponentLifecycleMapping: map[string]string{
+					"OnInit": "useEffect",
+				},
+				DirectiveConversionMapping: map[string]string{
+					"*ngIf": "useConditional",
+				},
+				ServiceContextMapping: map[string]string{
+					"AuthService": "useAuth",
+				},
+				PipeConversionMapping: map[string]string{
+					"date": "formatDate",
+				},
+				GuardRouteMapping: map[string]string{
+					"AuthGuard": "requireAuth",
+				},
+			},
+		},
+	}
+
+	clone := cloneState(state)
+
+	if clone.Request.MigrationConfig == nil {
+		t.Fatalf("expected migration config to be cloned")
+	}
+	if clone.Request.MigrationConfig == state.Request.MigrationConfig {
+		t.Fatalf("expected migration config pointers to differ")
+	}
+
+	tests := []struct {
+		name     string
+		original map[string]string
+		cloned   map[string]string
+		key      string
+		value    string
+	}{
+		{"pattern", state.Request.MigrationConfig.PatternMapping, clone.Request.MigrationConfig.PatternMapping, "component", "Component"},
+		{"lifecycle", state.Request.MigrationConfig.ComponentLifecycleMapping, clone.Request.MigrationConfig.ComponentLifecycleMapping, "OnInit", "useEffect"},
+		{"directive", state.Request.MigrationConfig.DirectiveConversionMapping, clone.Request.MigrationConfig.DirectiveConversionMapping, "*ngIf", "useConditional"},
+		{"service", state.Request.MigrationConfig.ServiceContextMapping, clone.Request.MigrationConfig.ServiceContextMapping, "AuthService", "useAuth"},
+		{"pipe", state.Request.MigrationConfig.PipeConversionMapping, clone.Request.MigrationConfig.PipeConversionMapping, "date", "formatDate"},
+		{"guard", state.Request.MigrationConfig.GuardRouteMapping, clone.Request.MigrationConfig.GuardRouteMapping, "AuthGuard", "requireAuth"},
+	}
+
+	for _, tc := range tests {
+		if tc.cloned == nil {
+			t.Fatalf("expected %s map to be cloned", tc.name)
+		}
+		if tc.cloned[tc.key] != tc.value {
+			t.Fatalf("unexpected %s mapping: got %q want %q", tc.name, tc.cloned[tc.key], tc.value)
+		}
+
+		tc.original[tc.key] = "modified"
+		if tc.cloned[tc.key] != tc.value {
+			t.Fatalf("expected cloned %s mapping to remain %q after modification, got %q", tc.name, tc.value, tc.cloned[tc.key])
+		}
+	}
+
+	state.Request.MigrationConfig.PatternMapping["extra"] = "value"
+	if _, ok := clone.Request.MigrationConfig.PatternMapping["extra"]; ok {
+		t.Fatalf("expected cloned pattern mapping to be isolated from new entries")
+	}
+}
+
 func TestManagerSpringArtifactPathValidatesLocation(t *testing.T) {
 	t.Helper()
 
