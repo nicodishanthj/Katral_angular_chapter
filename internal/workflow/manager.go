@@ -93,6 +93,14 @@ type TargetConfig struct {
 	Notes     string `json:"notes"`
 }
 
+type MigrationConfig struct {
+	AngularSourceRoot string            `json:"angular_source_root"`
+	AngularVersion    string            `json:"angular_version"`
+	ReactTargetRoot   string            `json:"react_target_root"`
+	ReactVersion      string            `json:"react_version"`
+	PatternMapping    map[string]string `json:"pattern_mapping,omitempty"`
+}
+
 type Request struct {
 	ProjectID        string           `json:"project_id"`
 	Mainframe        string           `json:"mainframe"`
@@ -107,6 +115,7 @@ type Request struct {
 	Flow             string           `json:"flow"`
 	KnowledgeConfig  *KnowledgeConfig `json:"knowledge_config,omitempty"`
 	TargetConfig     *TargetConfig    `json:"target_config,omitempty"`
+	MigrationConfig  *MigrationConfig `json:"migration_config,omitempty"`
 
 	kind Kind
 }

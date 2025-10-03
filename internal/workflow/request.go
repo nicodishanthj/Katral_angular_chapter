@@ -77,6 +77,44 @@ func normalizeRequest(req Request) (Request, error) {
 		req.TargetConfig.Runtime = strings.TrimSpace(req.TargetConfig.Runtime)
 		req.TargetConfig.Notes = strings.TrimSpace(req.TargetConfig.Notes)
 	}
+	if req.MigrationConfig != nil {
+		req.MigrationConfig.AngularSourceRoot = strings.TrimSpace(req.MigrationConfig.AngularSourceRoot)
+		req.MigrationConfig.AngularVersion = strings.TrimSpace(req.MigrationConfig.AngularVersion)
+		req.MigrationConfig.ReactTargetRoot = strings.TrimSpace(req.MigrationConfig.ReactTargetRoot)
+		req.MigrationConfig.ReactVersion = strings.TrimSpace(req.MigrationConfig.ReactVersion)
+
+		if len(req.MigrationConfig.PatternMapping) > 0 {
+			cleaned := make(map[string]string, len(req.MigrationConfig.PatternMapping))
+			for pattern, mapping := range req.MigrationConfig.PatternMapping {
+				key := strings.TrimSpace(pattern)
+				value := strings.TrimSpace(mapping)
+				if key != "" && value != "" {
+					cleaned[key] = value
+				}
+			}
+			if len(cleaned) == 0 {
+				req.MigrationConfig.PatternMapping = nil
+			} else {
+				req.MigrationConfig.PatternMapping = cleaned
+			}
+		}
+
+		if req.MigrationConfig.AngularSourceRoot == "" {
+			return Request{}, fmt.Errorf("angular source root required for migration")
+		}
+		if req.MigrationConfig.AngularVersion == "" {
+			return Request{}, fmt.Errorf("angular version required for migration")
+		}
+		if req.MigrationConfig.ReactTargetRoot == "" {
+			return Request{}, fmt.Errorf("react target root required for migration")
+		}
+		if req.TargetConfig == nil || !strings.EqualFold(req.TargetConfig.Framework, "react") {
+			return Request{}, fmt.Errorf("migration target framework must be react when migration_config is provided")
+		}
+		if req.MigrationConfig.ReactVersion != "" && req.TargetConfig.Version != "" && !strings.EqualFold(req.MigrationConfig.ReactVersion, req.TargetConfig.Version) {
+			return Request{}, fmt.Errorf("react target version mismatch between migration and target configuration")
+		}
+	}
 	return req, nil
 }
 
