@@ -16,18 +16,22 @@ import (
 )
 
 const (
-	docTypeSummary             = "documentation_summary"
-	docTypeCrossReference      = "documentation_cross_reference"
-	docTypeImpact              = "documentation_impact_analysis"
-	docTypeProgramFlow         = "documentation_program_flow"
-	docTypeBusinessPrompt      = "documentation_business_rules"
-	docTypeFunctionalSpec      = "documentation_functional_spec"
-	docTypeTechnicalSpec       = "documentation_technical_spec"
-	docTypeMigrationAssessment = "documentation_migration_assessment"
-	docTypeComponentMapping    = "documentation_component_mapping"
-	docTypeAPICompatibility    = "documentation_api_compatibility"
-	docTypeMigrationTimeline   = "documentation_migration_timeline"
-	metadataVersionKey         = "metadata_version"
+	docTypeSummary                = "documentation_summary"
+	docTypeCrossReference         = "documentation_cross_reference"
+	docTypeImpact                 = "documentation_impact_analysis"
+	docTypeProgramFlow            = "documentation_program_flow"
+	docTypeBusinessPrompt         = "documentation_business_rules"
+	docTypeFunctionalSpec         = "documentation_functional_spec"
+	docTypeTechnicalSpec          = "documentation_technical_spec"
+	docTypeMigrationAssessment    = "documentation_migration_assessment"
+	docTypeComponentMapping       = "documentation_component_mapping"
+	docTypeAPICompatibility       = "documentation_api_compatibility"
+	docTypeMigrationTimeline      = "documentation_migration_timeline"
+	docTypeMigrationComplexity    = "documentation_migration_complexity"
+	docTypePatternRecommendations = "documentation_pattern_recommendations"
+	docTypeMigratedCodeReview     = "documentation_migrated_code_review"
+	docTypePerformanceComparison  = "documentation_performance_comparison"
+	metadataVersionKey            = "metadata_version"
 )
 
 type documentationTemplate struct {
@@ -70,17 +74,21 @@ func (m *Manager) enrichDocumentation(ctx context.Context, projectID string, doc
 	var generated []kb.Doc
 	changed := false
 	managedTypes := map[string]struct{}{
-		docTypeSummary:             {},
-		docTypeCrossReference:      {},
-		docTypeImpact:              {},
-		docTypeProgramFlow:         {},
-		docTypeBusinessPrompt:      {},
-		docTypeFunctionalSpec:      {},
-		docTypeTechnicalSpec:       {},
-		docTypeMigrationAssessment: {},
-		docTypeComponentMapping:    {},
-		docTypeAPICompatibility:    {},
-		docTypeMigrationTimeline:   {},
+		docTypeSummary:                {},
+		docTypeCrossReference:         {},
+		docTypeImpact:                 {},
+		docTypeProgramFlow:            {},
+		docTypeBusinessPrompt:         {},
+		docTypeFunctionalSpec:         {},
+		docTypeTechnicalSpec:          {},
+		docTypeMigrationAssessment:    {},
+		docTypeComponentMapping:       {},
+		docTypeAPICompatibility:       {},
+		docTypeMigrationTimeline:      {},
+		docTypeMigrationComplexity:    {},
+		docTypePatternRecommendations: {},
+		docTypeMigratedCodeReview:     {},
+		docTypePerformanceComparison:  {},
 	}
 
 	buildErr := m.metadata.StreamPrograms(ctx, metadata.QueryOptions{ProjectID: projectID}, func(record metadata.ProgramRecord) error {
@@ -100,6 +108,10 @@ func (m *Manager) enrichDocumentation(ctx context.Context, projectID string, doc
 		mappingID := documentationDocID(program, docTypeComponentMapping)
 		compatibilityID := documentationDocID(program, docTypeAPICompatibility)
 		timelineID := documentationDocID(program, docTypeMigrationTimeline)
+		complexityID := documentationDocID(program, docTypeMigrationComplexity)
+		patternID := documentationDocID(program, docTypePatternRecommendations)
+		codeReviewID := documentationDocID(program, docTypeMigratedCodeReview)
+		performanceID := documentationDocID(program, docTypePerformanceComparison)
 
 		summaryDoc, summaryExists := existing[summaryID]
 		crossDoc, crossExists := existing[crossID]
@@ -112,8 +124,12 @@ func (m *Manager) enrichDocumentation(ctx context.Context, projectID string, doc
 		mappingDoc, mappingExists := existing[mappingID]
 		compatibilityDoc, compatibilityExists := existing[compatibilityID]
 		timelineDoc, timelineExists := existing[timelineID]
+		complexityDoc, complexityExists := existing[complexityID]
+		patternDoc, patternExists := existing[patternID]
+		codeReviewDoc, codeReviewExists := existing[codeReviewID]
+		performanceDoc, performanceExists := existing[performanceID]
 
-		if summaryExists && crossExists && impactExists && flowExists && businessExists && functionalExists && technicalExists && assessmentExists && mappingExists && compatibilityExists && timelineExists &&
+		if summaryExists && crossExists && impactExists && flowExists && businessExists && functionalExists && technicalExists && assessmentExists && mappingExists && compatibilityExists && timelineExists && complexityExists && patternExists && codeReviewExists && performanceExists &&
 			docMatchesVersion(summaryDoc, version) &&
 			docMatchesVersion(crossDoc, version) &&
 			docMatchesVersion(impactDoc, version) &&
@@ -124,8 +140,12 @@ func (m *Manager) enrichDocumentation(ctx context.Context, projectID string, doc
 			docMatchesVersion(assessmentDoc, version) &&
 			docMatchesVersion(mappingDoc, version) &&
 			docMatchesVersion(compatibilityDoc, version) &&
-			docMatchesVersion(timelineDoc, version) {
-			generated = append(generated, summaryDoc, crossDoc, impactDoc, flowDoc, businessDoc, functionalDoc, technicalDoc, assessmentDoc, mappingDoc, compatibilityDoc, timelineDoc)
+			docMatchesVersion(timelineDoc, version) &&
+			docMatchesVersion(complexityDoc, version) &&
+			docMatchesVersion(patternDoc, version) &&
+			docMatchesVersion(codeReviewDoc, version) &&
+			docMatchesVersion(performanceDoc, version) {
+			generated = append(generated, summaryDoc, crossDoc, impactDoc, flowDoc, businessDoc, functionalDoc, technicalDoc, assessmentDoc, mappingDoc, compatibilityDoc, timelineDoc, complexityDoc, patternDoc, codeReviewDoc, performanceDoc)
 			return nil
 		}
 
@@ -299,6 +319,70 @@ func (m *Manager) enrichDocumentation(ctx context.Context, projectID string, doc
 			changed = true
 		}
 		generated = append(generated, timelinePrompt)
+
+		complexityPrompt := buildMigrationComplexityDoc(template)
+		complexityPrompt.ID = complexityID
+		complexityPrompt.Program = program
+		complexityPrompt.Type = docTypeMigrationComplexity
+		complexityPrompt.SourcePath = template.Source
+		if complexityPrompt.SourcePath == "" {
+			complexityPrompt.SourcePath = record.SourcePath
+		}
+		complexityPrompt.Summary = fmt.Sprintf("Migration complexity analysis for %s", program)
+		complexityPrompt.Extra = mergeExtra(complexityPrompt.Extra, version)
+		complexityPrompt.Fingerprint = kb.ComputeFingerprint(complexityPrompt)
+		if !complexityExists || complexityPrompt.Fingerprint != complexityDoc.Fingerprint {
+			changed = true
+		}
+		generated = append(generated, complexityPrompt)
+
+		patternPrompt := buildPatternRecommendationsDoc(template)
+		patternPrompt.ID = patternID
+		patternPrompt.Program = program
+		patternPrompt.Type = docTypePatternRecommendations
+		patternPrompt.SourcePath = template.Source
+		if patternPrompt.SourcePath == "" {
+			patternPrompt.SourcePath = record.SourcePath
+		}
+		patternPrompt.Summary = fmt.Sprintf("Pattern recommendations for %s", program)
+		patternPrompt.Extra = mergeExtra(patternPrompt.Extra, version)
+		patternPrompt.Fingerprint = kb.ComputeFingerprint(patternPrompt)
+		if !patternExists || patternPrompt.Fingerprint != patternDoc.Fingerprint {
+			changed = true
+		}
+		generated = append(generated, patternPrompt)
+
+		codeReviewPrompt := buildMigratedCodeReviewDoc(template)
+		codeReviewPrompt.ID = codeReviewID
+		codeReviewPrompt.Program = program
+		codeReviewPrompt.Type = docTypeMigratedCodeReview
+		codeReviewPrompt.SourcePath = template.Source
+		if codeReviewPrompt.SourcePath == "" {
+			codeReviewPrompt.SourcePath = record.SourcePath
+		}
+		codeReviewPrompt.Summary = fmt.Sprintf("Migrated component code review for %s", program)
+		codeReviewPrompt.Extra = mergeExtra(codeReviewPrompt.Extra, version)
+		codeReviewPrompt.Fingerprint = kb.ComputeFingerprint(codeReviewPrompt)
+		if !codeReviewExists || codeReviewPrompt.Fingerprint != codeReviewDoc.Fingerprint {
+			changed = true
+		}
+		generated = append(generated, codeReviewPrompt)
+
+		performancePrompt := buildPerformanceComparisonDoc(template)
+		performancePrompt.ID = performanceID
+		performancePrompt.Program = program
+		performancePrompt.Type = docTypePerformanceComparison
+		performancePrompt.SourcePath = template.Source
+		if performancePrompt.SourcePath == "" {
+			performancePrompt.SourcePath = record.SourcePath
+		}
+		performancePrompt.Summary = fmt.Sprintf("Performance comparison for %s", program)
+		performancePrompt.Extra = mergeExtra(performancePrompt.Extra, version)
+		performancePrompt.Fingerprint = kb.ComputeFingerprint(performancePrompt)
+		if !performanceExists || performancePrompt.Fingerprint != performanceDoc.Fingerprint {
+			changed = true
+		}
+		generated = append(generated, performancePrompt)
 		return nil
 	})
 	if buildErr != nil {
@@ -712,6 +796,98 @@ func buildMigrationTimelineDoc(t documentationTemplate) kb.Doc {
 		{Title: "Integration checkpoints", Lines: t.Calls},
 	}
 	content := t.renderDoc("Migration Timeline Prompt Template", instructions, sections)
+	return kb.Doc{
+		Content:      content,
+		Technologies: t.Technologies,
+		Inputs:       t.Inputs,
+		Outputs:      t.Outputs,
+		Calls:        t.Calls,
+	}
+}
+
+func buildMigrationComplexityDoc(t documentationTemplate) kb.Doc {
+	instructions := []string{
+		"Rate migration complexity across architecture, data, and integration dimensions.",
+		"Highlight blockers that require refactoring or sequencing considerations before React adoption.",
+		"Surface prerequisites or mitigation plans that can reduce overall modernization risk.",
+	}
+	sections := []templateSection{
+		{Title: "Complexity drivers", Lines: t.Technologies},
+		{Title: "Flow checkpoints", Lines: t.FlowSteps},
+		{Title: "Integration touchpoints", Lines: t.Calls},
+		{Title: "Data structures", Lines: append(append([]string{}, t.Inputs...), t.DataModels...)},
+		{Title: "Business and functional considerations", Lines: append(append([]string{}, t.Business...), t.Functional...)},
+	}
+	content := t.renderDoc("Migration Complexity Assessment Prompt Template", instructions, sections)
+	return kb.Doc{
+		Content:      content,
+		Technologies: t.Technologies,
+		Inputs:       t.Inputs,
+		Outputs:      t.Outputs,
+		Calls:        t.Calls,
+	}
+}
+
+func buildPatternRecommendationsDoc(t documentationTemplate) kb.Doc {
+	instructions := []string{
+		"Recommend React and TypeScript patterns that replace Angular constructs identified in the source.",
+		"Map each recommendation to the flow steps, services, or data contracts that drive the need for the pattern.",
+		"Call out reusable scaffolding or shared libraries that can accelerate future migrations.",
+	}
+	sections := []templateSection{
+		{Title: "Legacy responsibilities", Lines: t.Functional},
+		{Title: "Lifecycle and flow checkpoints", Lines: t.FlowSteps},
+		{Title: "Integration touchpoints", Lines: t.Calls},
+		{Title: "Data models and DTOs", Lines: append(append([]string{}, t.DataModels...), t.DTOs...)},
+		{Title: "Business constraints", Lines: t.Business},
+	}
+	content := t.renderDoc("Pattern Recommendation Prompt Template", instructions, sections)
+	return kb.Doc{
+		Content:      content,
+		Technologies: t.Technologies,
+		Inputs:       t.Inputs,
+		Outputs:      t.Outputs,
+		Calls:        t.Calls,
+	}
+}
+
+func buildMigratedCodeReviewDoc(t documentationTemplate) kb.Doc {
+	instructions := []string{
+		"Review migrated React components to ensure behaviour parity with the Angular implementation.",
+		"Verify state management, data binding, and dependency usage align with modernization goals.",
+		"Document remediation tasks for gaps, regressions, or missing edge-case coverage.",
+	}
+	sections := []templateSection{
+		{Title: "Functional responsibilities", Lines: t.Functional},
+		{Title: "Technical considerations", Lines: t.Technical},
+		{Title: "Data bindings and DTOs", Lines: append(append(append([]string{}, t.Inputs...), t.Outputs...), t.DTOs...)},
+		{Title: "Business rules to preserve", Lines: t.Business},
+		{Title: "External interactions", Lines: t.Calls},
+	}
+	content := t.renderDoc("Migrated Component Code Review Prompt Template", instructions, sections)
+	return kb.Doc{
+		Content:      content,
+		Technologies: t.Technologies,
+		Inputs:       t.Inputs,
+		Outputs:      t.Outputs,
+		Calls:        t.Calls,
+	}
+}
+
+func buildPerformanceComparisonDoc(t documentationTemplate) kb.Doc {
+	instructions := []string{
+		"Compare current Angular performance characteristics with the proposed React target.",
+		"Identify workload hotspots, latency risks, or throughput constraints that migration must address.",
+		"Recommend measurement plans and optimization tactics for the target architecture.",
+	}
+	sections := []templateSection{
+		{Title: "Critical flow steps", Lines: t.FlowSteps},
+		{Title: "Input workloads", Lines: t.Inputs},
+		{Title: "Output obligations", Lines: t.Outputs},
+		{Title: "Integration latency factors", Lines: t.Calls},
+		{Title: "Technical performance notes", Lines: t.Technical},
+	}
+	content := t.renderDoc("Performance Comparison Prompt Template", instructions, sections)
 	return kb.Doc{
 		Content:      content,
 		Technologies: t.Technologies,

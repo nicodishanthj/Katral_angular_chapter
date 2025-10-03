@@ -341,6 +341,7 @@ func (m *Manager) summarizeDocumentation(ctx context.Context, projectID string) 
 	var docSummaries, crossRefs, impactAnalyses int
 	var flowPrompts, businessPrompts, functionalPrompts, technicalPrompts int
 	var migrationAssessments, componentMappings, apiMatrices, migrationTimelines int
+	var migrationComplexities, patternRecommendations, migratedCodeReviews, performanceComparisons int
 	for _, doc := range docs {
 		switch doc.Type {
 		case "metadata":
@@ -375,6 +376,14 @@ func (m *Manager) summarizeDocumentation(ctx context.Context, projectID string) 
 			apiMatrices++
 		case docTypeMigrationTimeline:
 			migrationTimelines++
+		case docTypeMigrationComplexity:
+			migrationComplexities++
+		case docTypePatternRecommendations:
+			patternRecommendations++
+		case docTypeMigratedCodeReview:
+			migratedCodeReviews++
+		case docTypePerformanceComparison:
+			performanceComparisons++
 		}
 	}
 	summaryParts := make([]string, 0, 5)
@@ -425,6 +434,18 @@ func (m *Manager) summarizeDocumentation(ctx context.Context, projectID string) 
 	}
 	if migrationTimelines > 0 {
 		summaryParts = append(summaryParts, fmt.Sprintf("%d migration timeline roadmaps", migrationTimelines))
+	}
+	if migrationComplexities > 0 {
+		summaryParts = append(summaryParts, fmt.Sprintf("%d migration complexity analyses", migrationComplexities))
+	}
+	if patternRecommendations > 0 {
+		summaryParts = append(summaryParts, fmt.Sprintf("%d pattern recommendation guides", patternRecommendations))
+	}
+	if migratedCodeReviews > 0 {
+		summaryParts = append(summaryParts, fmt.Sprintf("%d migrated component code reviews", migratedCodeReviews))
+	}
+	if performanceComparisons > 0 {
+		summaryParts = append(summaryParts, fmt.Sprintf("%d performance comparison analyses", performanceComparisons))
 	}
 	if len(summaryParts) == 0 {
 		return "", fmt.Errorf("no documentation artifacts were generated")
