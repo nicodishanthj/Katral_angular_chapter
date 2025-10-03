@@ -633,7 +633,40 @@ func cloneState(src State) State {
 		cfg := *src.Request.TargetConfig
 		clone.Request.TargetConfig = &cfg
 	}
+	if src.Request.MigrationConfig != nil {
+		cfg := *src.Request.MigrationConfig
+		if len(cfg.PatternMapping) > 0 {
+			cfg.PatternMapping = copyStringMap(cfg.PatternMapping)
+		}
+		if len(cfg.ComponentLifecycleMapping) > 0 {
+			cfg.ComponentLifecycleMapping = copyStringMap(cfg.ComponentLifecycleMapping)
+		}
+		if len(cfg.DirectiveConversionMapping) > 0 {
+			cfg.DirectiveConversionMapping = copyStringMap(cfg.DirectiveConversionMapping)
+		}
+		if len(cfg.ServiceContextMapping) > 0 {
+			cfg.ServiceContextMapping = copyStringMap(cfg.ServiceContextMapping)
+		}
+		if len(cfg.PipeConversionMapping) > 0 {
+			cfg.PipeConversionMapping = copyStringMap(cfg.PipeConversionMapping)
+		}
+		if len(cfg.GuardRouteMapping) > 0 {
+			cfg.GuardRouteMapping = copyStringMap(cfg.GuardRouteMapping)
+		}
+		clone.Request.MigrationConfig = &cfg
+	}
 	return clone
+}
+
+func copyStringMap(src map[string]string) map[string]string {
+	if len(src) == 0 {
+		return nil
+	}
+	dst := make(map[string]string, len(src))
+	for key, value := range src {
+		dst[key] = value
+	}
+	return dst
 }
 
 func (m *Manager) loadHistory() error {
