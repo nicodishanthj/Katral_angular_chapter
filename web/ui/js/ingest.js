@@ -71,6 +71,13 @@ const reactUiLibraryOptions = [
   { value: 'headlessui', label: 'Headless UI' }
 ];
 
+const migrationCollectionOptions = [
+  { value: 'angular_patterns_collection', label: 'Angular Patterns Collection' },
+  { value: 'react_patterns_collection', label: 'React Patterns Collection' },
+  { value: 'migration_rules_mappings', label: 'Migration Rules and Mappings' },
+  { value: 'best_practices_knowledge_base', label: 'Best Practices Knowledge Base' }
+];
+
 const angularKnowledgePreset = {
   stackOptions: [
     { value: 'angular-components', label: 'Angular Components', selected: true },
@@ -92,10 +99,7 @@ const angularKnowledgePreset = {
     { value: 'angular_component_catalog', label: 'Angular Component Catalog', selected: true },
     { value: 'angular_service_registry', label: 'Angular Service Registry' },
     { value: 'angular_module_reference', label: 'Angular Module Reference' },
-    { value: 'angular_patterns_collection', label: 'Angular Patterns Collection' },
-    { value: 'react_patterns_collection', label: 'React Patterns Collection' },
-    { value: 'migration_rules_mappings', label: 'Migration Rules and Mappings' },
-    { value: 'best_practices_knowledge_base', label: 'Best Practices Knowledge Base' }
+    ...migrationCollectionOptions
   ],
   additionalStacks: ['Standalone Components', 'Nx Workspaces', 'Jest Unit Tests'],
   useStackBadges: true
