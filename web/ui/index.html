@@ -151,6 +151,35 @@
               </div>
               <div id="searchResults" class="result"></div>
             </div>
+            <div id="migrationConfigSection" class="config-section" hidden>
+              <h3>Migration Configuration</h3>
+              <div class="config-subsection">
+                <h4>Source Angular Configuration</h4>
+                <p class="config-help">Detected Angular settings help pre-populate migration tasks. Override any option to match the source codebase.</p>
+                <label for="angularVersion">Angular Version</label>
+                <select id="angularVersion"></select>
+                <p id="angularVersionDetected" class="config-hint">Angular version will auto-detect once technologies are scanned.</p>
+                <label for="angularModuleType">Module Type</label>
+                <select id="angularModuleType"></select>
+                <label for="angularBuildSystem">Build System</label>
+                <select id="angularBuildSystem"></select>
+              </div>
+              <div class="config-subsection">
+                <h4>Target React Configuration</h4>
+                <p class="config-help">Align React targets to steer generated components and supporting libraries.</p>
+                <label for="reactVersion">React Version</label>
+                <select id="reactVersion"></select>
+                <label for="reactComponentPattern">Component Pattern</label>
+                <select id="reactComponentPattern"></select>
+                <label for="reactStateManagement">State Management</label>
+                <select id="reactStateManagement"></select>
+                <label for="reactRouting">Routing Library</label>
+                <select id="reactRouting"></select>
+                <label for="reactUiLibraries">UI Library Preferences</label>
+                <select id="reactUiLibraries" multiple size="5"></select>
+                <p class="config-hint">Hold Ctrl or Command to choose multiple UI libraries.</p>
+              </div>
+            </div>
             <div id="targetConfigSection" class="config-section" hidden>
               <h3>Target Modernization Settings</h3>
               <p class="config-help">Capture the modernization targets your workflow should pursue. These settings flow into the workflow kickoff so downstream agents understand the runtime expectations.</p>

@@ -653,6 +653,28 @@ main {
   margin-bottom: 20px;
 }
 
+.config-subsection {
+  margin-top: 18px;
+  padding: 18px;
+  border-radius: 14px;
+  background: rgba(148, 163, 184, 0.12);
+}
+
+.config-subsection:first-of-type {
+  margin-top: 12px;
+}
+
+.config-subsection h4 {
+  margin: 0 0 10px;
+  font-size: 16px;
+  color: var(--secondary);
+}
+
+.config-subsection .config-help {
+  margin: 0 0 16px;
+  color: var(--muted);
+}
+
 .upload-section {
   margin-top: 24px;
   border: 1px dashed rgba(33, 84, 209, 0.35);
@@ -845,6 +867,10 @@ select {
   margin-bottom: 16px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   resize: vertical;
+}
+
+select[multiple] {
+  min-height: 150px;
 }
 
 textarea {
