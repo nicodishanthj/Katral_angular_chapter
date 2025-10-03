@@ -417,7 +417,11 @@ function bindFlowSelection() {
       updateIngestView(flow);
       updateDocumentationView(flow);
       markStepComplete(1);
-      activatePanel('ingest');
+      if (hasTargetConfiguration(flow)) {
+        activatePanel('chat');
+      } else {
+        activatePanel('ingest');
+      }
     });
   });
 
