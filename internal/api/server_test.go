@@ -821,7 +821,7 @@ func TestHandleChatRAGFallback(t *testing.T) {
 func TestHandleAgentIncludesTargetConfig(t *testing.T) {
 	provider := &mockProvider{chatResponse: "done"}
 	srv, _, _ := newTestServer(t, provider, nil, nil, nil)
-	body := bytes.NewBufferString(`{"goal":"Plan modernization","flow":"code-conversion","target_config":{"language":"Java","version":"17","framework":"Spring Boot","runtime":"OpenShift","notes":"Prioritize modular services"}}`)
+	body := bytes.NewBufferString(`{"goal":"Plan modernization","flow":"code-conversion","target_config":{"language":"TypeScript","version":"5.4","framework":"Angular","runtime":"Node.js","notes":"Adopt standalone components"}}`)
 	req := httptest.NewRequest(http.MethodPost, "/v1/agent/run", body)
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
@@ -836,19 +836,19 @@ func TestHandleAgentIncludesTargetConfig(t *testing.T) {
 	if !strings.Contains(system, "Active flow: code-conversion") {
 		t.Fatalf("expected flow context, got %q", system)
 	}
-	if !strings.Contains(system, "language=Java") {
+	if !strings.Contains(system, "language=TypeScript") {
 		t.Fatalf("expected language in system prompt: %q", system)
 	}
-	if !strings.Contains(system, "version=17") {
+	if !strings.Contains(system, "version=5.4") {
 		t.Fatalf("expected version in system prompt: %q", system)
 	}
-	if !strings.Contains(system, "framework=Spring Boot") {
+	if !strings.Contains(system, "framework=Angular") {
 		t.Fatalf("expected framework in system prompt: %q", system)
 	}
-	if !strings.Contains(system, "runtime=OpenShift") {
+	if !strings.Contains(system, "runtime=Node.js") {
 		t.Fatalf("expected runtime in system prompt: %q", system)
 	}
-	if !strings.Contains(system, "notes=Prioritize modular services") {
+	if !strings.Contains(system, "notes=Adopt standalone components") {
 		t.Fatalf("expected notes in system prompt: %q", system)
 	}
 }
@@ -856,11 +856,12 @@ func TestHandleAgentIncludesTargetConfig(t *testing.T) {
 func TestHandleAgentInjectsKnowledgeContext(t *testing.T) {
 	orch, store := newTestOrchestrator(t, nil, nil)
 	doc := kb.Doc{
-		ID:         "DOC1",
-		Program:    "PRG001",
-		SourcePath: "prog.cbl",
-		Summary:    "Calculates loan amortization schedule.",
-		Content:    "This COBOL program processes loan records and outputs payment schedules.",
+		ID:           "DOC1",
+		Program:      "OrderComponent",
+		SourcePath:   "src/app/order.component.ts",
+		Summary:      "Displays order summaries and handles status updates.",
+		Content:      "This Angular component retrieves order data via OrderService and renders a material table.",
+		Technologies: []string{"Angular"},
 	}
 	if err := store.AppendDocs(context.Background(), "agent-doc-proj", []kb.Doc{doc}); err != nil {
 		t.Fatalf("append docs: %v", err)
@@ -870,7 +871,7 @@ func TestHandleAgentInjectsKnowledgeContext(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new server: %v", err)
 	}
-	body := bytes.NewBufferString(`{"goal":"Summarize program context","knowledge_config":{"repo":"legacy-system","stacks":["COBOL"]}}`)
+	body := bytes.NewBufferString(`{"goal":"Summarize OrderComponent modernization context","knowledge_config":{"repo":"legacy-order-system","stacks":["Angular"]}}`)
 	req := httptest.NewRequest(http.MethodPost, "/v1/agent/run", body)
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
@@ -888,8 +889,11 @@ func TestHandleAgentInjectsKnowledgeContext(t *testing.T) {
 	if !strings.Contains(contextMsg.Content, "[Snippet 1]") {
 		t.Fatalf("expected context snippet label, got %q", contextMsg.Content)
 	}
-	if !strings.Contains(contextMsg.Content, "PRG001") {
+	if !strings.Contains(contextMsg.Content, "OrderComponent") {
 		t.Fatalf("expected snippet to include program metadata, got %q", contextMsg.Content)
+	}
+	if !strings.Contains(contextMsg.Content, "src/app/order.component.ts") {
+		t.Fatalf("expected snippet to include source path, got %q", contextMsg.Content)
 	}
 	userMsg := provider.lastMessages[len(provider.lastMessages)-1]
 	if userMsg.Role != "user" {
@@ -1013,7 +1017,7 @@ func TestUIRoutes(t *testing.T) {
 		t.Fatalf("expected status 200 for /ui/, got %d (location=%q)", rr.Code, rr.Header().Get("Location"))
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "Katral Mainframe Assistant") {
+	if !strings.Contains(body, "Katral Angular Assistant") {
 		t.Fatalf("expected UI HTML to contain title, got: %s", body)
 	}
 
@@ -1033,26 +1037,26 @@ func TestWorkflowStatusIncludesTargetConfig(t *testing.T) {
 	tmp := t.TempDir()
 	srv, _, _ := newTestServer(t, nil, nil, nil, nil)
 
-	mainframe := filepath.Join(tmp, "mainframe")
-	if err := os.MkdirAll(mainframe, 0o755); err != nil {
-		t.Fatalf("mkdir mainframe: %v", err)
+	sourceRepo := filepath.Join(tmp, "angular-app")
+	if err := os.MkdirAll(sourceRepo, 0o755); err != nil {
+		t.Fatalf("mkdir source repo: %v", err)
 	}
-	samplePath := filepath.Join(mainframe, "README.txt")
+	samplePath := filepath.Join(sourceRepo, "README.md")
 	if err := os.WriteFile(samplePath, []byte("example"), 0o644); err != nil {
 		t.Fatalf("write sample: %v", err)
 	}
 
 	payload := map[string]interface{}{
-		"project_id": "proj-123",
-		"mainframe":  mainframe,
-		"stacks":     []string{"plaintext"},
-		"flow":       "code-conversion",
+		"project_id":  "proj-123",
+		"source_repo": sourceRepo,
+		"stacks":      []string{"Angular"},
+		"flow":        "code-conversion",
 		"target_config": map[string]string{
-			"language":  "Java",
-			"version":   "17",
-			"framework": "Spring Boot",
-			"runtime":   "JVM",
-			"notes":     "LTS",
+			"language":  "TypeScript",
+			"version":   "5.4",
+			"framework": "Angular",
+			"runtime":   "Node.js",
+			"notes":     "Use standalone components",
 		},
 	}
 	body, err := json.Marshal(payload)
@@ -1096,10 +1100,10 @@ func TestWorkflowStatusIncludesTargetConfig(t *testing.T) {
 		t.Fatalf("expected target config in workflow request")
 	}
 	cfg := state.Request.TargetConfig
-	if cfg.Language != "Java" || cfg.Version != "17" || cfg.Framework != "Spring Boot" || cfg.Runtime != "JVM" || cfg.Notes != "LTS" {
+	if cfg.Language != "TypeScript" || cfg.Version != "5.4" || cfg.Framework != "Angular" || cfg.Runtime != "Node.js" || cfg.Notes != "Use standalone components" {
 		t.Fatalf("unexpected target config: %+v", cfg)
 	}
-	expected := "Target: language=Java, version=17, framework=Spring Boot, runtime=JVM, notes=LTS"
+	expected := "Target: language=TypeScript, version=5.4, framework=Angular, runtime=Node.js, notes=Use standalone components"
 	found := false
 	for _, step := range state.Steps {
 		if strings.Contains(step.Message, expected) {
@@ -1137,9 +1141,11 @@ func TestWorkflowDownloadReturnsArtifact(t *testing.T) {
 	}
 	history := map[string]workflow.State{
 		"proj-download": {
-			Status:                 "completed",
-			SpringArtifact:         artifactPath,
-			ConversionArtifacts:    map[string]string{"conversion_summary": convArtifactPath},
+			Status: "completed",
+			ConversionArtifacts: map[string]string{
+				"conversion_source":  artifactPath,
+				"conversion_summary": convArtifactPath,
+			},
 			DocumentationArtifacts: map[string]string{"documentation_summary": docArtifactPath},
 			Request: workflow.Request{
 				ProjectID: "proj-download",
@@ -1162,6 +1168,7 @@ func TestWorkflowDownloadReturnsArtifact(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/v1/workflow/download", nil)
 	q := req.URL.Query()
 	q.Set("project_id", "proj-download")
+	q.Set("artifact", "conversion_source")
 	req.URL.RawQuery = q.Encode()
 	rr := httptest.NewRecorder()
 	srv.handleWorkflowDownload(rr, req)
@@ -1211,7 +1218,14 @@ func TestWorkflowDownloadReturnsArtifact(t *testing.T) {
 		t.Fatalf("expected conversion artifact body data")
 	}
 
-	missingReq := httptest.NewRequest(http.MethodGet, "/v1/workflow/download?project_id=unknown", nil)
+	noArtifactReq := httptest.NewRequest(http.MethodGet, "/v1/workflow/download?project_id=proj-download", nil)
+	noArtifactRR := httptest.NewRecorder()
+	srv.handleWorkflowDownload(noArtifactRR, noArtifactReq)
+	if noArtifactRR.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 when artifact query is missing, got %d", noArtifactRR.Code)
+	}
+
+	missingReq := httptest.NewRequest(http.MethodGet, "/v1/workflow/download?project_id=unknown&artifact=conversion_source", nil)
 	missingRR := httptest.NewRecorder()
 	srv.handleWorkflowDownload(missingRR, missingReq)
 	if missingRR.Code != http.StatusNotFound {
