@@ -340,6 +340,7 @@ func (m *Manager) summarizeDocumentation(ctx context.Context, projectID string) 
 	var programs, flows, businessRules, workingNotes, modernizations int
 	var docSummaries, crossRefs, impactAnalyses int
 	var flowPrompts, businessPrompts, functionalPrompts, technicalPrompts int
+	var migrationAssessments, componentMappings, apiMatrices, migrationTimelines int
 	for _, doc := range docs {
 		switch doc.Type {
 		case "metadata":
@@ -366,6 +367,14 @@ func (m *Manager) summarizeDocumentation(ctx context.Context, projectID string) 
 			functionalPrompts++
 		case docTypeTechnicalSpec:
 			technicalPrompts++
+		case docTypeMigrationAssessment:
+			migrationAssessments++
+		case docTypeComponentMapping:
+			componentMappings++
+		case docTypeAPICompatibility:
+			apiMatrices++
+		case docTypeMigrationTimeline:
+			migrationTimelines++
 		}
 	}
 	summaryParts := make([]string, 0, 5)
@@ -404,6 +413,18 @@ func (m *Manager) summarizeDocumentation(ctx context.Context, projectID string) 
 	}
 	if technicalPrompts > 0 {
 		summaryParts = append(summaryParts, fmt.Sprintf("%d technical specification prompts", technicalPrompts))
+	}
+	if migrationAssessments > 0 {
+		summaryParts = append(summaryParts, fmt.Sprintf("%d migration assessment reports", migrationAssessments))
+	}
+	if componentMappings > 0 {
+		summaryParts = append(summaryParts, fmt.Sprintf("%d component mapping guides", componentMappings))
+	}
+	if apiMatrices > 0 {
+		summaryParts = append(summaryParts, fmt.Sprintf("%d API compatibility matrices", apiMatrices))
+	}
+	if migrationTimelines > 0 {
+		summaryParts = append(summaryParts, fmt.Sprintf("%d migration timeline roadmaps", migrationTimelines))
 	}
 	if len(summaryParts) == 0 {
 		return "", fmt.Errorf("no documentation artifacts were generated")

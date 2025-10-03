@@ -224,6 +224,14 @@ func consolidatedTitleForDoc(doc kb.Doc, info ConsolidatedDocumentInfo) string {
 		return "Functional Specification"
 	case docTypeTechnicalSpec:
 		return "Technical Specification"
+	case docTypeMigrationAssessment:
+		return "Migration Assessment Report"
+	case docTypeComponentMapping:
+		return "Component Mapping Guide"
+	case docTypeAPICompatibility:
+		return "API Compatibility Matrix"
+	case docTypeMigrationTimeline:
+		return "Migration Timeline"
 	case "metadata":
 		return "Program Metadata"
 	case "flow", "cics_flow", "mq_flow":
