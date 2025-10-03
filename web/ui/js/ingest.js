@@ -314,6 +314,108 @@ let technologyRequestSeq = 0;
 let lastDetectedRepo = '';
 let detectedAngularVersion = '';
 let queuedIngestFiles = [];
+
+function createFileEntry(file, relativePath = '') {
+  if (!file) {
+    return null;
+  }
+  const normalizedPath = relativePath || file.webkitRelativePath || file.relativePath || '';
+  return {
+    file,
+    relativePath: normalizedPath
+  };
+}
+
+function getFileDisplayName(fileEntry) {
+  if (!fileEntry || !fileEntry.file) {
+    return '';
+  }
+  const { file, relativePath } = fileEntry;
+  return relativePath || file?.name || '';
+}
+
+function getFileQueueKey(fileEntry) {
+  if (!fileEntry || !fileEntry.file) {
+    return '';
+  }
+  const { file, relativePath } = fileEntry;
+  const pathComponent = relativePath || '';
+  return `${pathComponent}|${file.name}|${file.size}|${file.lastModified}`;
+}
+
+async function gatherFilesFromDataTransfer(dataTransfer) {
+  if (!dataTransfer) {
+    return [];
+  }
+
+  if (!dataTransfer.items || !dataTransfer.items.length) {
+    return Array.from(dataTransfer.files || []).map(file => createFileEntry(file)).filter(Boolean);
+  }
+
+  const entries = Array.from(dataTransfer.items)
+    .map(item => (typeof item.webkitGetAsEntry === 'function' ? item.webkitGetAsEntry() : null))
+    .filter(Boolean);
+
+  if (!entries.length) {
+    return Array.from(dataTransfer.files || []).map(file => createFileEntry(file)).filter(Boolean);
+  }
+
+  const walkEntry = async (entry, pathPrefix = '') => {
+    if (!entry) {
+      return [];
+    }
+    const entryName = entry.name || '';
+    if (entry.isFile) {
+      return new Promise(resolve => {
+        entry.file(file => {
+          const relativePath = pathPrefix ? `${pathPrefix}/${file.name}` : file.name;
+          const entryWithPath = createFileEntry(file, relativePath);
+          resolve(entryWithPath ? [entryWithPath] : []);
+        }, () => {
+          resolve([]);
+        });
+      });
+    }
+    if (entry.isDirectory) {
+      const directoryPath = pathPrefix ? `${pathPrefix}/${entryName}` : entryName;
+      const reader = entry.createReader();
+      const readAllEntries = () =>
+        new Promise((resolve, reject) => {
+          const results = [];
+          const readBatch = () => {
+            reader.readEntries(batch => {
+              if (!batch.length) {
+                resolve(results);
+                return;
+              }
+              results.push(...batch);
+              readBatch();
+            }, err => {
+              reject(err);
+            });
+          };
+          readBatch();
+        });
+      try {
+        const childEntries = await readAllEntries();
+        const childResults = await Promise.all(
+          childEntries.map(child => walkEntry(child, directoryPath))
+        );
+        return childResults.flat();
+      } catch (err) {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  const files = await Promise.all(entries.map(entry => walkEntry(entry)));
+  const flattened = files.flat().filter(Boolean);
+  if (flattened.length) {
+    return flattened;
+  }
+  return Array.from(dataTransfer.files || []).map(file => createFileEntry(file)).filter(Boolean);
+}
 let uploadInFlight = false;
 
 export function initIngest() {
@@ -540,9 +642,13 @@ function bindFileUpload() {
     ['dragleave', 'drop'].forEach(eventName => {
       ingestDropZone.addEventListener(eventName, () => ingestDropZone.classList.remove('dragover'));
     });
-    ingestDropZone.addEventListener('drop', event => {
-      if (event.dataTransfer?.files?.length) {
-        addFilesToQueue(event.dataTransfer.files);
+    ingestDropZone.addEventListener('drop', async event => {
+      if (!event.dataTransfer) {
+        return;
+      }
+      const files = await gatherFilesFromDataTransfer(event.dataTransfer);
+      if (files.length) {
+        addFilesToQueue(files);
       }
     });
     ingestDropZone.addEventListener('click', () => {
@@ -558,7 +664,10 @@ function bindFileUpload() {
 
   if (ingestFileInput) {
     ingestFileInput.addEventListener('change', () => {
-      addFilesToQueue(ingestFileInput.files);
+      const files = Array.from(ingestFileInput.files || [])
+        .map(file => createFileEntry(file))
+        .filter(Boolean);
+      addFilesToQueue(files);
     });
   }
 
@@ -1436,13 +1545,15 @@ function renderQueuedFiles() {
     return;
   }
   ingestFileListEl.hidden = false;
-  const totalSize = queuedIngestFiles.reduce((acc, file) => acc + (file.size || 0), 0);
+  const totalSize = queuedIngestFiles.reduce((acc, fileEntry) => acc + (fileEntry.file?.size || 0), 0);
   const plural = queuedIngestFiles.length === 1 ? 'file' : 'files';
   ingestFileSummaryEl.textContent = `${queuedIngestFiles.length} ${plural} selected (${formatFileSize(totalSize)})`;
   const previewLimit = 20;
-  queuedIngestFiles.slice(0, previewLimit).forEach(file => {
+  queuedIngestFiles.slice(0, previewLimit).forEach(fileEntry => {
     const li = document.createElement('li');
-    li.textContent = `${file.name} (${formatFileSize(file.size)})`;
+    const displayName = getFileDisplayName(fileEntry);
+    const fileSize = fileEntry.file?.size || 0;
+    li.textContent = `${displayName} (${formatFileSize(fileSize)})`;
     ingestFileItemsEl.appendChild(li);
   });
   if (queuedIngestFiles.length > previewLimit) {
@@ -1456,11 +1567,18 @@ function addFilesToQueue(fileList) {
   if (!fileList || !fileList.length) {
     return;
   }
-  const existing = new Set(queuedIngestFiles.map(file => `${file.name}|${file.size}|${file.lastModified}`));
-  Array.from(fileList).forEach(file => {
-    const key = `${file.name}|${file.size}|${file.lastModified}`;
-    if (!existing.has(key)) {
-      queuedIngestFiles.push(file);
+  const entries = Array.from(fileList)
+    .map(item =>
+      item && typeof item === 'object' && 'file' in item
+        ? createFileEntry(item.file, item.relativePath)
+        : createFileEntry(item)
+    )
+    .filter(Boolean);
+  const existing = new Set(queuedIngestFiles.map(getFileQueueKey).filter(Boolean));
+  entries.forEach(entry => {
+    const key = getFileQueueKey(entry);
+    if (key && !existing.has(key)) {
+      queuedIngestFiles.push(entry);
       existing.add(key);
     }
   });
@@ -1538,9 +1656,11 @@ async function uploadQueuedFiles() {
 
   let lastIngestResponse = null;
   for (let index = 0; index < queuedIngestFiles.length; index += 1) {
-    const file = queuedIngestFiles[index];
+    const fileEntry = queuedIngestFiles[index];
+    const { file, relativePath } = fileEntry;
+    const uploadName = getFileDisplayName(fileEntry) || file.name;
     const formData = new FormData();
-    formData.append('files', file, file.name);
+    formData.append('files', file, relativePath || file.name);
     if (flowConfig.knowledge.collection) {
       formData.append('collection', flowConfig.knowledge.collection);
     }
@@ -1551,7 +1671,7 @@ async function uploadQueuedFiles() {
       formData.append('project_id', activeProjectId);
     }
     if (ingestUploadStatusEl) {
-      ingestUploadStatusEl.textContent = `Uploading ${file.name} (${index + 1} of ${queuedIngestFiles.length})…`;
+      ingestUploadStatusEl.textContent = `Uploading ${uploadName} (${index + 1} of ${queuedIngestFiles.length})…`;
     }
     try {
       const response = await fetch('/v1/ingest/upload', {
@@ -1571,7 +1691,7 @@ async function uploadQueuedFiles() {
       lastIngestResponse = payload;
     } catch (err) {
       if (ingestUploadStatusEl) {
-        ingestUploadStatusEl.textContent = `Error uploading ${file.name}: ${err.message}`;
+        ingestUploadStatusEl.textContent = `Error uploading ${uploadName}: ${err.message}`;
       }
       updateUploadProgress(index, queuedIngestFiles.length);
       uploadInFlight = false;
