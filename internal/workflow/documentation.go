@@ -16,22 +16,26 @@ import (
 )
 
 const (
-	docTypeSummary                = "documentation_summary"
-	docTypeCrossReference         = "documentation_cross_reference"
-	docTypeImpact                 = "documentation_impact_analysis"
-	docTypeProgramFlow            = "documentation_program_flow"
-	docTypeBusinessPrompt         = "documentation_business_rules"
-	docTypeFunctionalSpec         = "documentation_functional_spec"
-	docTypeTechnicalSpec          = "documentation_technical_spec"
-	docTypeMigrationAssessment    = "documentation_migration_assessment"
-	docTypeComponentMapping       = "documentation_component_mapping"
-	docTypeAPICompatibility       = "documentation_api_compatibility"
-	docTypeMigrationTimeline      = "documentation_migration_timeline"
-	docTypeMigrationComplexity    = "documentation_migration_complexity"
-	docTypePatternRecommendations = "documentation_pattern_recommendations"
-	docTypeMigratedCodeReview     = "documentation_migrated_code_review"
-	docTypePerformanceComparison  = "documentation_performance_comparison"
-	metadataVersionKey            = "metadata_version"
+	docTypeSummary                    = "documentation_summary"
+	docTypeCrossReference             = "documentation_cross_reference"
+	docTypeImpact                     = "documentation_impact_analysis"
+	docTypeProgramFlow                = "documentation_program_flow"
+	docTypeBusinessPrompt             = "documentation_business_rules"
+	docTypeFunctionalSpec             = "documentation_functional_spec"
+	docTypeTechnicalSpec              = "documentation_technical_spec"
+	docTypeMigrationAssessment        = "documentation_migration_assessment"
+	docTypeComponentMapping           = "documentation_component_mapping"
+	docTypeAPICompatibility           = "documentation_api_compatibility"
+	docTypeMigrationTimeline          = "documentation_migration_timeline"
+	docTypeMigrationComplexity        = "documentation_migration_complexity"
+	docTypePatternRecommendations     = "documentation_pattern_recommendations"
+	docTypeMigratedCodeReview         = "documentation_migrated_code_review"
+	docTypePerformanceComparison      = "documentation_performance_comparison"
+	docTypeSideBySideComparison       = "documentation_side_by_side_comparison"
+	docTypeMigrationScript            = "documentation_migration_script"
+	docTypeComponentLibraryMapping    = "documentation_component_library_mapping"
+	docTypeMigrationValidationTesting = "documentation_migration_validation_tests"
+	metadataVersionKey                = "metadata_version"
 )
 
 type documentationTemplate struct {
@@ -74,21 +78,25 @@ func (m *Manager) enrichDocumentation(ctx context.Context, projectID string, doc
 	var generated []kb.Doc
 	changed := false
 	managedTypes := map[string]struct{}{
-		docTypeSummary:                {},
-		docTypeCrossReference:         {},
-		docTypeImpact:                 {},
-		docTypeProgramFlow:            {},
-		docTypeBusinessPrompt:         {},
-		docTypeFunctionalSpec:         {},
-		docTypeTechnicalSpec:          {},
-		docTypeMigrationAssessment:    {},
-		docTypeComponentMapping:       {},
-		docTypeAPICompatibility:       {},
-		docTypeMigrationTimeline:      {},
-		docTypeMigrationComplexity:    {},
-		docTypePatternRecommendations: {},
-		docTypeMigratedCodeReview:     {},
-		docTypePerformanceComparison:  {},
+		docTypeSummary:                    {},
+		docTypeCrossReference:             {},
+		docTypeImpact:                     {},
+		docTypeProgramFlow:                {},
+		docTypeBusinessPrompt:             {},
+		docTypeFunctionalSpec:             {},
+		docTypeTechnicalSpec:              {},
+		docTypeMigrationAssessment:        {},
+		docTypeComponentMapping:           {},
+		docTypeAPICompatibility:           {},
+		docTypeMigrationTimeline:          {},
+		docTypeMigrationComplexity:        {},
+		docTypePatternRecommendations:     {},
+		docTypeMigratedCodeReview:         {},
+		docTypePerformanceComparison:      {},
+		docTypeSideBySideComparison:       {},
+		docTypeMigrationScript:            {},
+		docTypeComponentLibraryMapping:    {},
+		docTypeMigrationValidationTesting: {},
 	}
 
 	buildErr := m.metadata.StreamPrograms(ctx, metadata.QueryOptions{ProjectID: projectID}, func(record metadata.ProgramRecord) error {
@@ -112,6 +120,10 @@ func (m *Manager) enrichDocumentation(ctx context.Context, projectID string, doc
 		patternID := documentationDocID(program, docTypePatternRecommendations)
 		codeReviewID := documentationDocID(program, docTypeMigratedCodeReview)
 		performanceID := documentationDocID(program, docTypePerformanceComparison)
+		comparisonID := documentationDocID(program, docTypeSideBySideComparison)
+		scriptID := documentationDocID(program, docTypeMigrationScript)
+		libraryID := documentationDocID(program, docTypeComponentLibraryMapping)
+		validationID := documentationDocID(program, docTypeMigrationValidationTesting)
 
 		summaryDoc, summaryExists := existing[summaryID]
 		crossDoc, crossExists := existing[crossID]
@@ -128,8 +140,12 @@ func (m *Manager) enrichDocumentation(ctx context.Context, projectID string, doc
 		patternDoc, patternExists := existing[patternID]
 		codeReviewDoc, codeReviewExists := existing[codeReviewID]
 		performanceDoc, performanceExists := existing[performanceID]
+		comparisonDoc, comparisonExists := existing[comparisonID]
+		scriptDoc, scriptExists := existing[scriptID]
+		libraryDoc, libraryExists := existing[libraryID]
+		validationDoc, validationExists := existing[validationID]
 
-		if summaryExists && crossExists && impactExists && flowExists && businessExists && functionalExists && technicalExists && assessmentExists && mappingExists && compatibilityExists && timelineExists && complexityExists && patternExists && codeReviewExists && performanceExists &&
+		if summaryExists && crossExists && impactExists && flowExists && businessExists && functionalExists && technicalExists && assessmentExists && mappingExists && compatibilityExists && timelineExists && complexityExists && patternExists && codeReviewExists && performanceExists && comparisonExists && scriptExists && libraryExists && validationExists &&
 			docMatchesVersion(summaryDoc, version) &&
 			docMatchesVersion(crossDoc, version) &&
 			docMatchesVersion(impactDoc, version) &&
@@ -144,8 +160,12 @@ func (m *Manager) enrichDocumentation(ctx context.Context, projectID string, doc
 			docMatchesVersion(complexityDoc, version) &&
 			docMatchesVersion(patternDoc, version) &&
 			docMatchesVersion(codeReviewDoc, version) &&
-			docMatchesVersion(performanceDoc, version) {
-			generated = append(generated, summaryDoc, crossDoc, impactDoc, flowDoc, businessDoc, functionalDoc, technicalDoc, assessmentDoc, mappingDoc, compatibilityDoc, timelineDoc, complexityDoc, patternDoc, codeReviewDoc, performanceDoc)
+			docMatchesVersion(performanceDoc, version) &&
+			docMatchesVersion(comparisonDoc, version) &&
+			docMatchesVersion(scriptDoc, version) &&
+			docMatchesVersion(libraryDoc, version) &&
+			docMatchesVersion(validationDoc, version) {
+			generated = append(generated, summaryDoc, crossDoc, impactDoc, flowDoc, businessDoc, functionalDoc, technicalDoc, assessmentDoc, mappingDoc, compatibilityDoc, timelineDoc, complexityDoc, patternDoc, codeReviewDoc, performanceDoc, comparisonDoc, scriptDoc, libraryDoc, validationDoc)
 			return nil
 		}
 
@@ -383,6 +403,70 @@ func (m *Manager) enrichDocumentation(ctx context.Context, projectID string, doc
 			changed = true
 		}
 		generated = append(generated, performancePrompt)
+
+		comparisonPrompt := buildSideBySideComparisonDoc(template)
+		comparisonPrompt.ID = comparisonID
+		comparisonPrompt.Program = program
+		comparisonPrompt.Type = docTypeSideBySideComparison
+		comparisonPrompt.SourcePath = template.Source
+		if comparisonPrompt.SourcePath == "" {
+			comparisonPrompt.SourcePath = record.SourcePath
+		}
+		comparisonPrompt.Summary = fmt.Sprintf("Side-by-side modernization comparison for %s", program)
+		comparisonPrompt.Extra = mergeExtra(comparisonPrompt.Extra, version)
+		comparisonPrompt.Fingerprint = kb.ComputeFingerprint(comparisonPrompt)
+		if !comparisonExists || comparisonPrompt.Fingerprint != comparisonDoc.Fingerprint {
+			changed = true
+		}
+		generated = append(generated, comparisonPrompt)
+
+		migrationScriptPrompt := buildMigrationScriptDoc(template)
+		migrationScriptPrompt.ID = scriptID
+		migrationScriptPrompt.Program = program
+		migrationScriptPrompt.Type = docTypeMigrationScript
+		migrationScriptPrompt.SourcePath = template.Source
+		if migrationScriptPrompt.SourcePath == "" {
+			migrationScriptPrompt.SourcePath = record.SourcePath
+		}
+		migrationScriptPrompt.Summary = fmt.Sprintf("Migration automation script plan for %s", program)
+		migrationScriptPrompt.Extra = mergeExtra(migrationScriptPrompt.Extra, version)
+		migrationScriptPrompt.Fingerprint = kb.ComputeFingerprint(migrationScriptPrompt)
+		if !scriptExists || migrationScriptPrompt.Fingerprint != scriptDoc.Fingerprint {
+			changed = true
+		}
+		generated = append(generated, migrationScriptPrompt)
+
+		libraryMappingPrompt := buildComponentLibraryMappingDoc(template)
+		libraryMappingPrompt.ID = libraryID
+		libraryMappingPrompt.Program = program
+		libraryMappingPrompt.Type = docTypeComponentLibraryMapping
+		libraryMappingPrompt.SourcePath = template.Source
+		if libraryMappingPrompt.SourcePath == "" {
+			libraryMappingPrompt.SourcePath = record.SourcePath
+		}
+		libraryMappingPrompt.Summary = fmt.Sprintf("Component library mapping for %s", program)
+		libraryMappingPrompt.Extra = mergeExtra(libraryMappingPrompt.Extra, version)
+		libraryMappingPrompt.Fingerprint = kb.ComputeFingerprint(libraryMappingPrompt)
+		if !libraryExists || libraryMappingPrompt.Fingerprint != libraryDoc.Fingerprint {
+			changed = true
+		}
+		generated = append(generated, libraryMappingPrompt)
+
+		validationPrompt := buildMigrationValidationTestsDoc(template)
+		validationPrompt.ID = validationID
+		validationPrompt.Program = program
+		validationPrompt.Type = docTypeMigrationValidationTesting
+		validationPrompt.SourcePath = template.Source
+		if validationPrompt.SourcePath == "" {
+			validationPrompt.SourcePath = record.SourcePath
+		}
+		validationPrompt.Summary = fmt.Sprintf("Migration validation test strategy for %s", program)
+		validationPrompt.Extra = mergeExtra(validationPrompt.Extra, version)
+		validationPrompt.Fingerprint = kb.ComputeFingerprint(validationPrompt)
+		if !validationExists || validationPrompt.Fingerprint != validationDoc.Fingerprint {
+			changed = true
+		}
+		generated = append(generated, validationPrompt)
 		return nil
 	})
 	if buildErr != nil {
@@ -760,6 +844,29 @@ func buildComponentMappingDoc(t documentationTemplate) kb.Doc {
 	}
 }
 
+func buildComponentLibraryMappingDoc(t documentationTemplate) kb.Doc {
+	instructions := []string{
+		"Recommend React or TypeScript library components that replace legacy widgets and screens.",
+		"Document how inputs, outputs, and DTOs should bind to the proposed library components.",
+		"Highlight shared styling, state, or accessibility packages required for parity.",
+	}
+	sections := []templateSection{
+		{Title: "Legacy UI responsibilities", Lines: t.Functional},
+		{Title: "Target component libraries", Lines: t.Technologies},
+		{Title: "Data bindings", Lines: append(append([]string{}, t.Inputs...), t.Outputs...)},
+		{Title: "Integration touchpoints", Lines: t.Calls},
+		{Title: "Business constraints", Lines: t.Business},
+	}
+	content := t.renderDoc("Component Library Mapping Prompt Template", instructions, sections)
+	return kb.Doc{
+		Content:      content,
+		Technologies: t.Technologies,
+		Inputs:       t.Inputs,
+		Outputs:      t.Outputs,
+		Calls:        t.Calls,
+	}
+}
+
 func buildAPICompatibilityDoc(t documentationTemplate) kb.Doc {
 	instructions := []string{
 		"Compare legacy inputs and outputs with the target API expectations.",
@@ -888,6 +995,75 @@ func buildPerformanceComparisonDoc(t documentationTemplate) kb.Doc {
 		{Title: "Technical performance notes", Lines: t.Technical},
 	}
 	content := t.renderDoc("Performance Comparison Prompt Template", instructions, sections)
+	return kb.Doc{
+		Content:      content,
+		Technologies: t.Technologies,
+		Inputs:       t.Inputs,
+		Outputs:      t.Outputs,
+		Calls:        t.Calls,
+	}
+}
+
+func buildSideBySideComparisonDoc(t documentationTemplate) kb.Doc {
+	instructions := []string{
+		"Provide a side-by-side summary of the Angular implementation and the proposed React solution.",
+		"Emphasize behavioural parity requirements, especially for business rules and data handling.",
+		"Call out opportunities to simplify or enhance the target experience while retaining obligations.",
+	}
+	sections := []templateSection{
+		{Title: "Legacy Angular responsibilities", Lines: t.Functional},
+		{Title: "React modernization targets", Lines: t.Technical},
+		{Title: "Control flow checkpoints", Lines: t.FlowSteps},
+		{Title: "Data and DTO considerations", Lines: append(append([]string{}, t.DataModels...), t.DTOs...)},
+		{Title: "Business rules to preserve", Lines: t.Business},
+	}
+	content := t.renderDoc("Side-by-Side Modernization Comparison Prompt Template", instructions, sections)
+	return kb.Doc{
+		Content:      content,
+		Technologies: t.Technologies,
+		Inputs:       t.Inputs,
+		Outputs:      t.Outputs,
+		Calls:        t.Calls,
+	}
+}
+
+func buildMigrationScriptDoc(t documentationTemplate) kb.Doc {
+	instructions := []string{
+		"Outline automation scripts that migrate Angular assets to React equivalents with minimal manual work.",
+		"Sequence transformations to respect dependencies, data contracts, and flow ordering.",
+		"Document safeguards, rollback checkpoints, and manual review steps the scripts should surface.",
+	}
+	sections := []templateSection{
+		{Title: "Prerequisites and tooling", Lines: t.Technologies},
+		{Title: "Migration sequence", Lines: t.FlowSteps},
+		{Title: "Transformation rules", Lines: append(append([]string{}, t.Functional...), t.Technical...)},
+		{Title: "Data contract handling", Lines: append(append([]string{}, t.Inputs...), t.Outputs...)},
+		{Title: "External dependencies", Lines: t.Calls},
+	}
+	content := t.renderDoc("Migration Script Blueprint Prompt Template", instructions, sections)
+	return kb.Doc{
+		Content:      content,
+		Technologies: t.Technologies,
+		Inputs:       t.Inputs,
+		Outputs:      t.Outputs,
+		Calls:        t.Calls,
+	}
+}
+
+func buildMigrationValidationTestsDoc(t documentationTemplate) kb.Doc {
+	instructions := []string{
+		"Design validation tests that confirm React components match legacy behaviour and integrations.",
+		"Cover edge cases derived from business rules, data quality requirements, and flow branching.",
+		"Include automated regression, accessibility, and performance checks for critical scenarios.",
+	}
+	sections := []templateSection{
+		{Title: "Critical user journeys", Lines: t.FlowSteps},
+		{Title: "Business rule assertions", Lines: t.Business},
+		{Title: "Input and output verifications", Lines: append(append([]string{}, t.Inputs...), t.Outputs...)},
+		{Title: "Integration validations", Lines: t.Calls},
+		{Title: "Performance and quality baselines", Lines: t.Technical},
+	}
+	content := t.renderDoc("Migration Validation Test Prompt Template", instructions, sections)
 	return kb.Doc{
 		Content:      content,
 		Technologies: t.Technologies,

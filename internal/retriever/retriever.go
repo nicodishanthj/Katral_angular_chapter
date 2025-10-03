@@ -680,6 +680,14 @@ func aggregateProgramDocs(docs []kb.Doc) map[string]*kb.ProgramDoc {
 			program.MigratedCodeReviews = append(program.MigratedCodeReviews, doc)
 		case "documentation_performance_comparison":
 			program.PerformanceComparisons = append(program.PerformanceComparisons, doc)
+		case "documentation_side_by_side_comparison":
+			program.SideBySideComparisons = append(program.SideBySideComparisons, doc)
+		case "documentation_migration_script":
+			program.MigrationScripts = append(program.MigrationScripts, doc)
+		case "documentation_component_library_mapping":
+			program.ComponentLibraryMappings = append(program.ComponentLibraryMappings, doc)
+		case "documentation_migration_validation_tests":
+			program.MigrationValidationTests = append(program.MigrationValidationTests, doc)
 		}
 	}
 	for _, program := range programs {
@@ -867,6 +875,38 @@ func aggregateProgramDocs(docs []kb.Doc) map[string]*kb.ProgramDoc {
 			}
 			return left.SourcePath < right.SourcePath
 		})
+		sort.Slice(program.SideBySideComparisons, func(i, j int) bool {
+			left := program.SideBySideComparisons[i]
+			right := program.SideBySideComparisons[j]
+			if left.SourcePath == right.SourcePath {
+				return left.ID < right.ID
+			}
+			return left.SourcePath < right.SourcePath
+		})
+		sort.Slice(program.MigrationScripts, func(i, j int) bool {
+			left := program.MigrationScripts[i]
+			right := program.MigrationScripts[j]
+			if left.SourcePath == right.SourcePath {
+				return left.ID < right.ID
+			}
+			return left.SourcePath < right.SourcePath
+		})
+		sort.Slice(program.ComponentLibraryMappings, func(i, j int) bool {
+			left := program.ComponentLibraryMappings[i]
+			right := program.ComponentLibraryMappings[j]
+			if left.SourcePath == right.SourcePath {
+				return left.ID < right.ID
+			}
+			return left.SourcePath < right.SourcePath
+		})
+		sort.Slice(program.MigrationValidationTests, func(i, j int) bool {
+			left := program.MigrationValidationTests[i]
+			right := program.MigrationValidationTests[j]
+			if left.SourcePath == right.SourcePath {
+				return left.ID < right.ID
+			}
+			return left.SourcePath < right.SourcePath
+		})
 	}
 	return programs
 }
@@ -931,6 +971,10 @@ func (r *Retriever) enrichProgramDoc(ctx context.Context, base kb.ProgramDoc, em
 	var patternRecommendations []kb.Doc
 	var migratedCodeReviews []kb.Doc
 	var performanceComparisons []kb.Doc
+	var sideBySideComparisons []kb.Doc
+	var migrationScripts []kb.Doc
+	var componentLibraryMappings []kb.Doc
+	var migrationValidationTests []kb.Doc
 	for _, point := range points {
 		doc, ok := docsByID[point.ID]
 		if !ok {
@@ -986,6 +1030,14 @@ func (r *Retriever) enrichProgramDoc(ctx context.Context, base kb.ProgramDoc, em
 			migratedCodeReviews = appendIfMissing(migratedCodeReviews, doc)
 		case "documentation_performance_comparison":
 			performanceComparisons = appendIfMissing(performanceComparisons, doc)
+		case "documentation_side_by_side_comparison":
+			sideBySideComparisons = appendIfMissing(sideBySideComparisons, doc)
+		case "documentation_migration_script":
+			migrationScripts = appendIfMissing(migrationScripts, doc)
+		case "documentation_component_library_mapping":
+			componentLibraryMappings = appendIfMissing(componentLibraryMappings, doc)
+		case "documentation_migration_validation_tests":
+			migrationValidationTests = appendIfMissing(migrationValidationTests, doc)
 		}
 	}
 	enriched := base
@@ -1057,6 +1109,18 @@ func (r *Retriever) enrichProgramDoc(ctx context.Context, base kb.ProgramDoc, em
 	}
 	if len(performanceComparisons) > 0 {
 		enriched.PerformanceComparisons = performanceComparisons
+	}
+	if len(sideBySideComparisons) > 0 {
+		enriched.SideBySideComparisons = sideBySideComparisons
+	}
+	if len(migrationScripts) > 0 {
+		enriched.MigrationScripts = migrationScripts
+	}
+	if len(componentLibraryMappings) > 0 {
+		enriched.ComponentLibraryMappings = componentLibraryMappings
+	}
+	if len(migrationValidationTests) > 0 {
+		enriched.MigrationValidationTests = migrationValidationTests
 	}
 	return r.attachGraph(ctx, enriched)
 }

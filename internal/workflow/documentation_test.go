@@ -119,6 +119,10 @@ func TestSummarizeDocumentationGeneratesArtifactsIncrementally(t *testing.T) {
 		"pattern recommendation guides",
 		"migrated component code reviews",
 		"performance comparison analyses",
+		"side-by-side comparison briefs",
+		"migration script blueprints",
+		"component library mapping guides",
+		"migration validation test plans",
 	} {
 		if !contains(summary, want) {
 			t.Fatalf("summary missing %q: %s", want, summary)
@@ -135,6 +139,8 @@ func TestSummarizeDocumentationGeneratesArtifactsIncrementally(t *testing.T) {
 	var migrationAssessmentDoc, componentMappingDoc, apiCompatibilityDoc, migrationTimelineDoc kb.Doc
 	var migrationComplexityDoc, patternRecommendationsDoc kb.Doc
 	var migratedCodeReviewDoc, performanceComparisonDoc kb.Doc
+	var sideBySideDoc, migrationScriptDoc kb.Doc
+	var componentLibraryMappingDoc, migrationValidationDoc kb.Doc
 	for _, doc := range generated {
 		switch doc.Type {
 		case docTypeCrossReference:
@@ -173,6 +179,14 @@ func TestSummarizeDocumentationGeneratesArtifactsIncrementally(t *testing.T) {
 			migratedCodeReviewDoc = doc
 		case docTypePerformanceComparison:
 			performanceComparisonDoc = doc
+		case docTypeSideBySideComparison:
+			sideBySideDoc = doc
+		case docTypeMigrationScript:
+			migrationScriptDoc = doc
+		case docTypeComponentLibraryMapping:
+			componentLibraryMappingDoc = doc
+		case docTypeMigrationValidationTesting:
+			migrationValidationDoc = doc
 		}
 	}
 	if !crossFound || !impactFound {
@@ -216,6 +230,18 @@ func TestSummarizeDocumentationGeneratesArtifactsIncrementally(t *testing.T) {
 	}
 	if performanceComparisonDoc.ID == "" {
 		t.Fatalf("expected performance comparison prompt to be generated")
+	}
+	if sideBySideDoc.ID == "" {
+		t.Fatalf("expected side-by-side comparison prompt to be generated")
+	}
+	if migrationScriptDoc.ID == "" {
+		t.Fatalf("expected migration script prompt to be generated")
+	}
+	if componentLibraryMappingDoc.ID == "" {
+		t.Fatalf("expected component library mapping prompt to be generated")
+	}
+	if migrationValidationDoc.ID == "" {
+		t.Fatalf("expected migration validation test prompt to be generated")
 	}
 	if !contains(summaryDoc.Content, "technical specifications") {
 		t.Fatalf("expected technical specifications section in summary doc: %q", summaryDoc.Content)

@@ -240,6 +240,14 @@ func consolidatedTitleForDoc(doc kb.Doc, info ConsolidatedDocumentInfo) string {
 		return "Migrated Component Code Review"
 	case docTypePerformanceComparison:
 		return "Performance Comparison Analysis"
+	case docTypeSideBySideComparison:
+		return "Side-by-Side Comparison Brief"
+	case docTypeMigrationScript:
+		return "Migration Script Blueprint"
+	case docTypeComponentLibraryMapping:
+		return "Component Library Mapping Guide"
+	case docTypeMigrationValidationTesting:
+		return "Migration Validation Test Plan"
 	case "metadata":
 		return "Program Metadata"
 	case "flow", "cics_flow", "mq_flow":
