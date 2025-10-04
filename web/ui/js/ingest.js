@@ -315,11 +315,22 @@ let lastDetectedRepo = '';
 let detectedAngularVersion = '';
 let queuedIngestFiles = [];
 
+function normalizeRelativePath(rawPath) {
+  if (!rawPath || typeof rawPath !== 'string') {
+    return '';
+  }
+  return rawPath
+    .replace(/\\/g, '/')
+    .replace(/^(\.\/)+/, '')
+    .replace(/^\/+/g, '');
+}
+
 function createFileEntry(file, relativePath = '') {
   if (!file) {
     return null;
   }
-  const normalizedPath = relativePath || file.webkitRelativePath || file.relativePath || '';
+  const candidatePath = relativePath || file.webkitRelativePath || file.relativePath || '';
+  const normalizedPath = normalizeRelativePath(candidatePath);
   return {
     file,
     relativePath: normalizedPath
@@ -339,7 +350,10 @@ function getFileQueueKey(fileEntry) {
     return '';
   }
   const { file, relativePath } = fileEntry;
-  const pathComponent = relativePath || '';
+  const normalizedPath = normalizeRelativePath(
+    relativePath || file.webkitRelativePath || file.relativePath || ''
+  );
+  const pathComponent = normalizedPath || file.name || '';
   return `${pathComponent}|${file.name}|${file.size}|${file.lastModified}`;
 }
 
@@ -1551,9 +1565,13 @@ function renderQueuedFiles() {
   const previewLimit = 20;
   queuedIngestFiles.slice(0, previewLimit).forEach(fileEntry => {
     const li = document.createElement('li');
-    const displayName = getFileDisplayName(fileEntry);
+    const displayName = getFileDisplayName(fileEntry) || fileEntry.file?.name || 'Unnamed file';
     const fileSize = fileEntry.file?.size || 0;
     li.textContent = `${displayName} (${formatFileSize(fileSize)})`;
+    if (fileEntry.relativePath) {
+      li.title = fileEntry.relativePath;
+      li.dataset.relativePath = fileEntry.relativePath;
+    }
     ingestFileItemsEl.appendChild(li);
   });
   if (queuedIngestFiles.length > previewLimit) {
