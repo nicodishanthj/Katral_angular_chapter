@@ -2,6 +2,33 @@ const knowledgeFlows = new Set(['knowledge-base', 'chat-with-code', 'doc-generat
 const modernizationFlows = new Set(['code-conversion']);
 const angularMigrationFlows = new Set(['angular-react-migration']);
 
+const targetPresetFactories = new Map([
+  ['code-conversion', () => flowConfig.modernization],
+  ['angular-react-migration', () => migrationConfig.target]
+]);
+
+function clonePreset(config) {
+  if (!config || typeof config !== 'object') {
+    return null;
+  }
+  const clone = Array.isArray(config) ? config.slice() : { ...config };
+  Object.keys(clone).forEach(key => {
+    const value = clone[key];
+    if (Array.isArray(value)) {
+      clone[key] = value.slice();
+    } else if (value && typeof value === 'object') {
+      clone[key] = clonePreset(value);
+    }
+  });
+  if (clone.framework != null) {
+    clone.framework = String(clone.framework).trim().toLowerCase();
+  }
+  if (clone.version != null) {
+    clone.version = String(clone.version).trim();
+  }
+  return clone;
+}
+
 const migrationConfig = {
   source: {
     framework: 'Angular',
@@ -119,6 +146,21 @@ export function getModernizationFlows() {
 
 export function getAngularMigrationFlows() {
   return angularMigrationFlows;
+}
+
+export function getTargetPresetConfig(flow) {
+  if (!flow) {
+    return null;
+  }
+  const factory = targetPresetFactories.get(flow);
+  if (!factory) {
+    return null;
+  }
+  const config = factory();
+  if (!config || typeof config !== 'object') {
+    return null;
+  }
+  return clonePreset(config);
 }
 
 export function getFlowConfig() {

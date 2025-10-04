@@ -15,6 +15,7 @@ import {
   getKnowledgeFlows,
   getModernizationFlows,
   getAngularMigrationFlows,
+  getTargetPresetConfig,
   setProjectIdentifier,
   getProjectIdentifier,
   getMigrationConfig,
@@ -1636,8 +1637,9 @@ export function buildWorkflowStartPayload(options = {}) {
     };
   }
 
-  if (modernizationFlows.has(selectedFlow)) {
-    payload.target_config = { ...flowConfig.modernization };
+  const targetPreset = getTargetPresetConfig(selectedFlow);
+  if (targetPreset) {
+    payload.target_config = targetPreset;
   }
 
   if (angularMigrationFlows.has(selectedFlow)) {
