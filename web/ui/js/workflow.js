@@ -382,7 +382,7 @@ function bindWorkflowButtons() {
           throw new Error(message);
         }
         const blob = await response.blob();
-        let filename = 'spring-artifact.zip';
+        let filename = 'spring-project.json';
         const disposition = response.headers.get('Content-Disposition') || '';
         const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
         if (utf8Match && utf8Match[1]) {

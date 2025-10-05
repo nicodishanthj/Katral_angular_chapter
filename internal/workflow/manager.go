@@ -2,13 +2,11 @@
 package workflow
 
 import (
-	"archive/zip"
 	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -446,7 +444,7 @@ func (m *Manager) LoadDocumentationArtifacts(projectID string) (DocumentationArt
 		if err != nil {
 			return nil, err
 		}
-		docs, err := loadDocumentationArchive(path)
+		docs, err := loadDocumentationArtifact(path)
 		if err != nil {
 			return nil, fmt.Errorf("load %s artifact: %w", kind, err)
 		}
@@ -495,37 +493,21 @@ func (m *Manager) LoadDocumentationArtifacts(projectID string) (DocumentationArt
 	return rendered, nil
 }
 
-func loadDocumentationArchive(path string) ([]kb.Doc, error) {
-	archive, err := zip.OpenReader(path)
+func loadDocumentationArtifact(path string) ([]kb.Doc, error) {
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("open archive: %w", err)
+		return nil, fmt.Errorf("read artifact: %w", err)
 	}
-	defer archive.Close()
-	var docs []kb.Doc
-	for _, file := range archive.File {
-		if file.FileInfo().IsDir() {
-			continue
-		}
-		name := strings.TrimSpace(file.Name)
-		if name == "" || strings.EqualFold(name, "manifest.json") || !strings.HasSuffix(strings.ToLower(name), ".json") {
-			continue
-		}
-		reader, err := file.Open()
-		if err != nil {
-			return nil, fmt.Errorf("open %s: %w", file.Name, err)
-		}
-		data, err := io.ReadAll(reader)
-		reader.Close()
-		if err != nil {
-			return nil, fmt.Errorf("read %s: %w", file.Name, err)
-		}
-		var doc kb.Doc
-		if err := json.Unmarshal(data, &doc); err != nil {
-			return nil, fmt.Errorf("unmarshal %s: %w", file.Name, err)
-		}
-		docs = append(docs, doc)
+	if len(data) == 0 {
+		return nil, nil
 	}
-	return docs, nil
+	var payload struct {
+		Documents []kb.Doc `json:"documents"`
+	}
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return nil, fmt.Errorf("decode artifact: %w", err)
+	}
+	return payload.Documents, nil
 }
 
 func documentationMarkdownFromDoc(doc kb.Doc) string {
