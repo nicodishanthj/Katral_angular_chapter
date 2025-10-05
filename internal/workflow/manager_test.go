@@ -2,15 +2,12 @@
 package workflow
 
 import (
-	"archive/zip"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
-	"testing"
-	"time"
+        "encoding/json"
+        "errors"
+        "os"
+        "path/filepath"
+        "testing"
+        "time"
 
 	"github.com/nicodishanthj/Katral_phase1/internal/graph"
 	"github.com/nicodishanthj/Katral_phase1/internal/kb"
@@ -31,7 +28,7 @@ func TestManagerStatusReturnsPersistedState(t *testing.T) {
 	mgr := NewManager(store, nil, retr, nil, nil, nil, graph.NoopDependencyService(), nil, nil, nil)
 
 	now := time.Now().UTC()
-	artifactPath := filepath.Join(tmp, "artifacts", "proj-1.zip")
+	artifactPath := filepath.Join(tmp, "artifacts", "proj-1.json")
 	state := State{
 		Status:         "completed",
 		Running:        false,
@@ -165,7 +162,7 @@ func TestManagerSpringArtifactPathValidatesLocation(t *testing.T) {
 		t.Fatalf("mkdir artifact root: %v", err)
 	}
 
-	inside := filepath.Join(artifactRoot, "proj-valid.zip")
+	inside := filepath.Join(artifactRoot, "proj-valid.json")
 	if err := os.WriteFile(inside, []byte("artifact"), 0o644); err != nil {
 		t.Fatalf("write artifact: %v", err)
 	}
@@ -180,7 +177,7 @@ func TestManagerSpringArtifactPathValidatesLocation(t *testing.T) {
 		t.Fatalf("expected path %q, got %q", inside, resolved)
 	}
 
-	outside := filepath.Join(tmp, "outside.zip")
+	outside := filepath.Join(tmp, "outside.json")
 	if err := os.WriteFile(outside, []byte("artifact"), 0o644); err != nil {
 		t.Fatalf("write outside artifact: %v", err)
 	}
@@ -189,7 +186,7 @@ func TestManagerSpringArtifactPathValidatesLocation(t *testing.T) {
 		t.Fatalf("expected invalid error, got %v", err)
 	}
 
-	missing := filepath.Join(artifactRoot, "missing.zip")
+	missing := filepath.Join(artifactRoot, "missing.json")
 	mgr.persistProjectState("proj-missing", State{Status: "completed", SpringArtifact: missing, Request: Request{ProjectID: "proj-missing"}})
 	if _, err := mgr.SpringArtifactPath("proj-missing"); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("expected missing artifact error, got %v", err)
@@ -217,7 +214,7 @@ func TestManagerDocumentationArtifactPathValidatesLocation(t *testing.T) {
 		t.Fatalf("mkdir artifact root: %v", err)
 	}
 
-	summaryPath := filepath.Join(artifactRoot, "proj-doc-summary.zip")
+	summaryPath := filepath.Join(artifactRoot, "proj-doc-summary.json")
 	if err := os.WriteFile(summaryPath, []byte("doc"), 0o644); err != nil {
 		t.Fatalf("write doc artifact: %v", err)
 	}
@@ -236,7 +233,7 @@ func TestManagerDocumentationArtifactPathValidatesLocation(t *testing.T) {
 		t.Fatalf("expected summary path %q, got %q", summaryPath, resolved)
 	}
 
-	outside := filepath.Join(tmp, "proj-doc-outside.zip")
+	outside := filepath.Join(tmp, "proj-doc-outside.json")
 	if err := os.WriteFile(outside, []byte("doc"), 0o644); err != nil {
 		t.Fatalf("write outside doc artifact: %v", err)
 	}
@@ -251,7 +248,7 @@ func TestManagerDocumentationArtifactPathValidatesLocation(t *testing.T) {
 
 	mgr.persistProjectState("proj-doc-missing", State{
 		Status:                 "completed",
-		DocumentationArtifacts: map[string]string{"documentation_summary": filepath.Join(artifactRoot, "missing.zip")},
+		DocumentationArtifacts: map[string]string{"documentation_summary": filepath.Join(artifactRoot, "missing.json")},
 		Request:                Request{ProjectID: "proj-doc-missing"},
 	})
 	if _, err := mgr.DocumentationArtifactPath("proj-doc-missing", "documentation_summary"); !errors.Is(err, os.ErrNotExist) {
@@ -280,55 +277,36 @@ func TestManagerLoadDocumentationArtifacts(t *testing.T) {
 		t.Fatalf("mkdir artifact root: %v", err)
 	}
 
-	summaryPath := filepath.Join(artifactRoot, "proj-docs-summary.zip")
-	crossPath := filepath.Join(artifactRoot, "proj-docs-cross.zip")
+	summaryPath := filepath.Join(artifactRoot, "proj-docs-summary.json")
+	crossPath := filepath.Join(artifactRoot, "proj-docs-cross.json")
 
-	writeArchive := func(path string, docs []kb.Doc) {
+	writeArtifact := func(path, kind string, docs []kb.Doc) {
 		t.Helper()
-		file, err := os.Create(path)
+		payload := struct {
+			ProjectID     string    `json:"project_id"`
+			ArtifactType  string    `json:"artifact_type"`
+			GeneratedAt   time.Time `json:"generated_at"`
+			DocumentCount int       `json:"document_count"`
+			DocumentIDs   []string  `json:"document_ids"`
+			Documents     []kb.Doc  `json:"documents"`
+		}{
+			ProjectID:     "proj-docs",
+			ArtifactType:  kind,
+			GeneratedAt:   time.Now().UTC(),
+			DocumentCount: len(docs),
+			DocumentIDs:   collectDocIDs(docs),
+			Documents:     docs,
+		}
+		data, err := json.MarshalIndent(payload, "", "  ")
 		if err != nil {
-			t.Fatalf("create archive: %v", err)
+			t.Fatalf("marshal artifact: %v", err)
 		}
-		zipWriter := zip.NewWriter(file)
-		for idx, doc := range docs {
-			program := strings.TrimSpace(doc.Program)
-			if program == "" {
-				program = "project"
-			}
-			entryName := fmt.Sprintf("%s/doc-%d.json", strings.ToLower(program), idx+1)
-			writer, err := zipWriter.Create(entryName)
-			if err != nil {
-				t.Fatalf("create entry: %v", err)
-			}
-			payload, err := json.Marshal(doc)
-			if err != nil {
-				t.Fatalf("marshal doc: %v", err)
-			}
-			if _, err := writer.Write(payload); err != nil {
-				t.Fatalf("write doc: %v", err)
-			}
-		}
-		manifestWriter, err := zipWriter.Create("manifest.json")
-		if err != nil {
-			t.Fatalf("create manifest: %v", err)
-		}
-		manifest := map[string]interface{}{"document_count": len(docs)}
-		manifestPayload, err := json.Marshal(manifest)
-		if err != nil {
-			t.Fatalf("marshal manifest: %v", err)
-		}
-		if _, err := manifestWriter.Write(manifestPayload); err != nil {
-			t.Fatalf("write manifest: %v", err)
-		}
-		if err := zipWriter.Close(); err != nil {
-			t.Fatalf("close archive: %v", err)
-		}
-		if err := file.Close(); err != nil {
-			t.Fatalf("close file: %v", err)
+		if err := os.WriteFile(path, data, 0o644); err != nil {
+			t.Fatalf("write artifact: %v", err)
 		}
 	}
 
-	writeArchive(summaryPath, []kb.Doc{
+	writeArtifact(summaryPath, "documentation_summary", []kb.Doc{
 		{
 			ID:         "PGM1-summary",
 			Program:    "PGM1",
@@ -345,7 +323,7 @@ func TestManagerLoadDocumentationArtifacts(t *testing.T) {
 		},
 	})
 
-	writeArchive(crossPath, []kb.Doc{
+	writeArtifact(crossPath, "documentation_cross_reference", []kb.Doc{
 		{
 			ID:      "PGM2-cross",
 			Program: "PGM2",
@@ -444,7 +422,7 @@ func TestManagerConversionArtifactPathValidatesLocation(t *testing.T) {
 		t.Fatalf("mkdir artifact root: %v", err)
 	}
 
-	summaryPath := filepath.Join(artifactRoot, "proj-conv-summary.zip")
+	summaryPath := filepath.Join(artifactRoot, "proj-conv-summary.json")
 	if err := os.WriteFile(summaryPath, []byte("conv"), 0o644); err != nil {
 		t.Fatalf("write conversion artifact: %v", err)
 	}
@@ -463,7 +441,7 @@ func TestManagerConversionArtifactPathValidatesLocation(t *testing.T) {
 		t.Fatalf("expected conversion summary path %q, got %q", summaryPath, resolved)
 	}
 
-	outside := filepath.Join(tmp, "proj-conv-outside.zip")
+	outside := filepath.Join(tmp, "proj-conv-outside.json")
 	if err := os.WriteFile(outside, []byte("conv"), 0o644); err != nil {
 		t.Fatalf("write outside conversion artifact: %v", err)
 	}
@@ -478,7 +456,7 @@ func TestManagerConversionArtifactPathValidatesLocation(t *testing.T) {
 
 	mgr.persistProjectState("proj-conv-missing", State{
 		Status:              "completed",
-		ConversionArtifacts: map[string]string{"conversion_summary": filepath.Join(artifactRoot, "missing.zip")},
+		ConversionArtifacts: map[string]string{"conversion_summary": filepath.Join(artifactRoot, "missing.json")},
 		Request:             Request{ProjectID: "proj-conv-missing"},
 	})
 	if _, err := mgr.ConversionArtifactPath("proj-conv-missing", "conversion_summary"); !errors.Is(err, os.ErrNotExist) {

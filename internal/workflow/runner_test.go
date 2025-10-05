@@ -2,8 +2,9 @@
 package workflow
 
 import (
-	"archive/zip"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -49,24 +50,56 @@ func TestPackageSpringProjectCreatesArchiveAndLogs(t *testing.T) {
 		t.Fatalf("expected artifact to have content")
 	}
 	base := filepath.Base(artifactPath)
-	if !strings.HasPrefix(base, "proj-example-") || !strings.HasSuffix(base, ".zip") {
+	if !strings.HasPrefix(base, "proj-example-") || !strings.HasSuffix(base, ".json") {
 		t.Fatalf("unexpected artifact name %q", base)
 	}
 
-	reader, err := zip.OpenReader(artifactPath)
+	data, err := os.ReadFile(artifactPath)
 	if err != nil {
-		t.Fatalf("open zip: %v", err)
+		t.Fatalf("read artifact: %v", err)
 	}
-	defer reader.Close()
-	files := make(map[string]struct{})
-	for _, f := range reader.File {
-		files[f.Name] = struct{}{}
+	var payload struct {
+		ProjectID string `json:"project_id"`
+		Root      string `json:"root"`
+		Files     []struct {
+			Path    string `json:"path"`
+			Content string `json:"content"`
+		} `json:"files"`
 	}
-	if _, ok := files["pom.xml"]; !ok {
-		t.Fatalf("expected pom.xml in archive, got %v", files)
+	if err := json.Unmarshal(data, &payload); err != nil {
+		t.Fatalf("unmarshal artifact: %v", err)
 	}
-	if _, ok := files["src/main/App.java"]; !ok {
-		t.Fatalf("expected App.java in archive, got %v", files)
+	if !strings.EqualFold(payload.ProjectID, "proj example") {
+		t.Fatalf("unexpected project id in artifact: %+v", payload)
+	}
+	if payload.Root != "spring" {
+		t.Fatalf("expected root to be spring, got %q", payload.Root)
+	}
+	files := make(map[string]string)
+	for _, file := range payload.Files {
+		files[file.Path] = file.Content
+	}
+	pom, ok := files["pom.xml"]
+	if !ok {
+		t.Fatalf("expected pom.xml in artifact, got %v", files)
+	}
+	pomBytes, err := base64.StdEncoding.DecodeString(pom)
+	if err != nil {
+		t.Fatalf("decode pom content: %v", err)
+	}
+	if string(pomBytes) != "<project/>" {
+		t.Fatalf("unexpected pom content: %s", string(pomBytes))
+	}
+	app, ok := files["src/main/App.java"]
+	if !ok {
+		t.Fatalf("expected App.java in artifact, got %v", files)
+	}
+	appBytes, err := base64.StdEncoding.DecodeString(app)
+	if err != nil {
+		t.Fatalf("decode app content: %v", err)
+	}
+	if string(appBytes) != "class App {}" {
+		t.Fatalf("unexpected app content: %s", string(appBytes))
 	}
 
 	logs := mgr.Logs()
@@ -117,8 +150,30 @@ func TestPackageConversionDocumentsCreatesArchives(t *testing.T) {
 		if info.Size() == 0 {
 			t.Fatalf("expected artifact %s to have content", kind)
 		}
-		if filepath.Ext(path) != ".zip" {
-			t.Fatalf("expected artifact %s to be a zip, got %s", kind, path)
+		if filepath.Ext(path) != ".json" {
+			t.Fatalf("expected artifact %s to be json, got %s", kind, path)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s artifact: %v", kind, err)
+		}
+		var payload struct {
+			ArtifactType  string   `json:"artifact_type"`
+			DocumentCount int      `json:"document_count"`
+			DocumentIDs   []string `json:"document_ids"`
+			Documents     []kb.Doc `json:"documents"`
+		}
+		if err := json.Unmarshal(data, &payload); err != nil {
+			t.Fatalf("decode %s artifact: %v", kind, err)
+		}
+		if payload.ArtifactType != kind {
+			t.Fatalf("expected artifact type %s, got %s", kind, payload.ArtifactType)
+		}
+		if payload.DocumentCount != len(payload.Documents) {
+			t.Fatalf("document count mismatch: %+v", payload)
+		}
+		if len(payload.DocumentIDs) == 0 {
+			t.Fatalf("expected document ids for %s", kind)
 		}
 	}
 }

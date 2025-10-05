@@ -2,12 +2,11 @@
 package workflow
 
 import (
-	"archive/zip"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -645,15 +644,27 @@ func (m *Manager) packageSpringProject(ctx context.Context, projectID, sourceDir
 	}
 	safeProject := safeFileComponent(projectID)
 	timestamp := time.Now().UTC().Format("20060102T150405Z")
-	artifactName := fmt.Sprintf("%s-%s.zip", safeProject, timestamp)
+	artifactName := fmt.Sprintf("%s-%s.json", safeProject, timestamp)
 	finalPath := filepath.Join(root, artifactName)
 	tempPath := finalPath + ".tmp"
 
-	file, err := os.OpenFile(tempPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
-	if err != nil {
-		return "", fmt.Errorf("create artifact: %w", err)
+	type springProjectFile struct {
+		Path    string `json:"path"`
+		Size    int64  `json:"size"`
+		Mode    string `json:"mode,omitempty"`
+		Content string `json:"content"`
 	}
-	zipWriter := zip.NewWriter(file)
+	artifact := struct {
+		ProjectID   string              `json:"project_id"`
+		GeneratedAt time.Time           `json:"generated_at"`
+		Root        string              `json:"root"`
+		Files       []springProjectFile `json:"files"`
+	}{
+		ProjectID:   projectID,
+		GeneratedAt: time.Now().UTC(),
+		Root:        filepath.Base(sourceDir),
+	}
+
 	m.AppendLog("info", "Packaging Spring project from %s for project %s", sourceDir, projectID)
 	walkErr := filepath.WalkDir(sourceDir, func(path string, d os.DirEntry, walkErr error) error {
 		if walkErr != nil {
@@ -664,68 +675,40 @@ func (m *Manager) packageSpringProject(ctx context.Context, projectID, sourceDir
 			return ctx.Err()
 		default:
 		}
+		if d.IsDir() {
+			return nil
+		}
 		rel, err := filepath.Rel(sourceDir, path)
 		if err != nil {
 			return err
-		}
-		if rel == "." {
-			if d.IsDir() {
-				return nil
-			}
-		}
-		rel = filepath.ToSlash(rel)
-		if d.IsDir() {
-			if rel != "." {
-				if !strings.HasSuffix(rel, "/") {
-					rel += "/"
-				}
-				_, err := zipWriter.Create(rel)
-				return err
-			}
-			return nil
 		}
 		fileInfo, err := d.Info()
 		if err != nil {
 			return err
 		}
-		header, err := zip.FileInfoHeader(fileInfo)
+		data, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
-		header.Name = rel
-		header.Method = zip.Deflate
-		writer, err := zipWriter.CreateHeader(header)
-		if err != nil {
-			return err
-		}
-		inFile, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-		_, copyErr := io.Copy(writer, inFile)
-		closeErr := inFile.Close()
-		if copyErr != nil {
-			return copyErr
-		}
-		if closeErr != nil {
-			return closeErr
-		}
+		mode := fmt.Sprintf("%#o", fileInfo.Mode().Perm())
+		artifact.Files = append(artifact.Files, springProjectFile{
+			Path:    filepath.ToSlash(rel),
+			Size:    fileInfo.Size(),
+			Mode:    mode,
+			Content: base64.StdEncoding.EncodeToString(data),
+		})
 		return nil
 	})
 	if walkErr != nil {
-		_ = zipWriter.Close()
-		_ = file.Close()
-		_ = os.Remove(tempPath)
 		return "", fmt.Errorf("package spring project: %w", walkErr)
 	}
-	if err := zipWriter.Close(); err != nil {
-		_ = file.Close()
-		_ = os.Remove(tempPath)
-		return "", fmt.Errorf("finalize artifact: %w", err)
+
+	payload, err := json.MarshalIndent(artifact, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("marshal spring project artifact: %w", err)
 	}
-	if err := file.Close(); err != nil {
-		_ = os.Remove(tempPath)
-		return "", fmt.Errorf("close artifact: %w", err)
+	if err := os.WriteFile(tempPath, payload, 0o644); err != nil {
+		return "", fmt.Errorf("write spring project artifact: %w", err)
 	}
 	if err := os.Rename(tempPath, finalPath); err != nil {
 		_ = os.Remove(tempPath)
@@ -738,6 +721,15 @@ func (m *Manager) packageSpringProject(ctx context.Context, projectID, sourceDir
 	}
 	m.AppendLog("info", "Packaged Spring project for project %s: %s", projectID, absPath)
 	return absPath, nil
+}
+
+func (m *Manager) generateSpringProject(ctx context.Context, projectID string, req Request) (string, error) {
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	default:
+	}
+	return strings.TrimSpace(req.SpringProject), nil
 }
 
 func (m *Manager) ensureArtifactRoot() (string, error) {
@@ -797,19 +789,9 @@ func (m *Manager) packageDocFamilies(ctx context.Context, projectID string, docs
 		if safeKind == "" || safeKind == "project" {
 			safeKind = "documentation"
 		}
-		artifactName := fmt.Sprintf("%s-%s-%s.zip", safeProject, safeKind, timestamp)
+		artifactName := fmt.Sprintf("%s-%s-%s.json", safeProject, safeKind, timestamp)
 		finalPath := filepath.Join(root, artifactName)
 		tempPath := finalPath + ".tmp"
-		file, err := os.OpenFile(tempPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
-		if err != nil {
-			return nil, fmt.Errorf("create artifact: %w", err)
-		}
-		zipWriter := zip.NewWriter(file)
-		cleanup := func() {
-			_ = zipWriter.Close()
-			_ = file.Close()
-			_ = os.Remove(tempPath)
-		}
 		sorted := make([]kb.Doc, len(docs))
 		copy(sorted, docs)
 		sort.Slice(sorted, func(i, j int) bool {
@@ -820,73 +802,36 @@ func (m *Manager) packageDocFamilies(ctx context.Context, projectID string, docs
 			}
 			return left.ID < right.ID
 		})
-		nameCounts := make(map[string]int)
-		for idx, doc := range sorted {
-			if err := ctx.Err(); err != nil {
-				cleanup()
-				return nil, err
-			}
-			programDir := safeFileComponent(doc.Program)
-			if programDir == "" || programDir == "project" {
-				programDir = "program"
-			}
-			baseName := safeFileComponent(doc.ID)
-			if baseName == "" || baseName == "project" {
-				baseName = fmt.Sprintf("doc-%d", idx+1)
-			}
-			key := programDir + "/" + baseName
-			if count := nameCounts[key]; count > 0 {
-				baseName = fmt.Sprintf("%s-%d", baseName, count+1)
-			}
-			nameCounts[key]++
-			entryName := fmt.Sprintf("%s/%s.json", programDir, baseName)
-			writer, err := zipWriter.Create(entryName)
-			if err != nil {
-				cleanup()
-				return nil, fmt.Errorf("create archive entry: %w", err)
-			}
-			payload, err := json.MarshalIndent(doc, "", "  ")
-			if err != nil {
-				cleanup()
-				return nil, fmt.Errorf("marshal document: %w", err)
-			}
-			if _, err := writer.Write(payload); err != nil {
-				cleanup()
-				return nil, fmt.Errorf("write document: %w", err)
-			}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
 		}
-		manifest := map[string]interface{}{
-			"project_id":     projectID,
-			"artifact_type":  kind,
-			"generated_at":   generatedAt.Format(time.RFC3339Nano),
-			"document_count": len(docs),
-			"document_ids":   collectDocIDs(sorted),
+		artifactPayload := struct {
+			ProjectID     string    `json:"project_id"`
+			ArtifactType  string    `json:"artifact_type"`
+			GeneratedAt   time.Time `json:"generated_at"`
+			DocumentCount int       `json:"document_count"`
+			DocumentIDs   []string  `json:"document_ids"`
+			Documents     []kb.Doc  `json:"documents"`
+		}{
+			ProjectID:     projectID,
+			ArtifactType:  kind,
+			GeneratedAt:   generatedAt,
+			DocumentCount: len(sorted),
+			DocumentIDs:   collectDocIDs(sorted),
+			Documents:     sorted,
 		}
-		manifestWriter, err := zipWriter.Create("manifest.json")
+		payload, err := json.MarshalIndent(artifactPayload, "", "  ")
 		if err != nil {
-			cleanup()
-			return nil, fmt.Errorf("create manifest: %w", err)
+			return nil, fmt.Errorf("marshal %s artifact: %w", kind, err)
 		}
-		manifestPayload, err := json.MarshalIndent(manifest, "", "  ")
-		if err != nil {
-			cleanup()
-			return nil, fmt.Errorf("marshal manifest: %w", err)
-		}
-		if _, err := manifestWriter.Write(manifestPayload); err != nil {
-			cleanup()
-			return nil, fmt.Errorf("write manifest: %w", err)
-		}
-		if err := zipWriter.Close(); err != nil {
-			cleanup()
-			return nil, fmt.Errorf("finalize artifact: %w", err)
-		}
-		if err := file.Close(); err != nil {
-			cleanup()
-			return nil, fmt.Errorf("close artifact: %w", err)
+		if err := os.WriteFile(tempPath, payload, 0o644); err != nil {
+			return nil, fmt.Errorf("write %s artifact: %w", kind, err)
 		}
 		if err := os.Rename(tempPath, finalPath); err != nil {
-			cleanup()
-			return nil, fmt.Errorf("finalize artifact: %w", err)
+			_ = os.Remove(tempPath)
+			return nil, fmt.Errorf("finalize %s artifact: %w", kind, err)
 		}
 		absPath, err := filepath.Abs(finalPath)
 		if err != nil {

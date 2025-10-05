@@ -2,11 +2,9 @@
 package api
 
 import (
-	"archive/zip"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -63,7 +61,7 @@ func shouldDownloadConsolidatedDoc(r *http.Request) bool {
 	downloadParam := strings.TrimSpace(r.URL.Query().Get("download"))
 	if downloadParam != "" {
 		switch strings.ToLower(downloadParam) {
-		case "1", "true", "yes", "download", "zip":
+		case "1", "true", "yes", "download":
 			return true
 		case "0", "false", "no":
 			return false
@@ -71,9 +69,7 @@ func shouldDownloadConsolidatedDoc(r *http.Request) bool {
 	}
 	accept := strings.ToLower(r.Header.Get("Accept"))
 	if accept != "" {
-		if strings.Contains(accept, "application/zip") && !strings.Contains(accept, "application/json") {
-			return true
-		}
+		return strings.Contains(accept, "application/json")
 	}
 	return false
 }
@@ -95,38 +91,34 @@ func streamConsolidatedDoc(w http.ResponseWriter, r *http.Request, path string) 
 		return
 	}
 	name := filepath.Base(path)
-	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Type", contentTypeForPath(name))
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", name))
 	http.ServeContent(w, r, name, info.ModTime(), file)
 }
 
 func loadConsolidatedManifest(path string) (*workflow.ConsolidatedDoc, error) {
-	archive, err := zip.OpenReader(path)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("open consolidated artifact: %w", err)
 	}
-	defer archive.Close()
-	for _, file := range archive.File {
-		if file.FileInfo().IsDir() {
-			continue
-		}
-		if !strings.EqualFold(filepath.Base(file.Name), "manifest.json") {
-			continue
-		}
-		reader, err := file.Open()
-		if err != nil {
-			return nil, fmt.Errorf("open consolidated manifest: %w", err)
-		}
-		data, err := io.ReadAll(reader)
-		reader.Close()
-		if err != nil {
-			return nil, fmt.Errorf("read consolidated manifest: %w", err)
-		}
-		var manifest workflow.ConsolidatedDoc
-		if err := json.Unmarshal(data, &manifest); err != nil {
-			return nil, fmt.Errorf("decode consolidated manifest: %w", err)
-		}
-		return &manifest, nil
+	var payload struct {
+		Manifest workflow.ConsolidatedDoc `json:"manifest"`
 	}
-	return nil, fmt.Errorf("consolidated manifest not found in artifact")
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return nil, fmt.Errorf("decode consolidated artifact: %w", err)
+	}
+	return &payload.Manifest, nil
+}
+
+func contentTypeForPath(name string) string {
+	switch strings.ToLower(filepath.Ext(name)) {
+	case ".md":
+		return "text/markdown"
+	case ".html", ".htm":
+		return "text/html"
+	case ".json":
+		return "application/json"
+	default:
+		return "application/octet-stream"
+	}
 }

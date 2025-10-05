@@ -2,7 +2,6 @@
 package api
 
 import (
-	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -1017,7 +1016,7 @@ func TestUIRoutes(t *testing.T) {
 		t.Fatalf("expected status 200 for /ui/, got %d (location=%q)", rr.Code, rr.Header().Get("Location"))
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, "Katral Angular Assistant") {
+	if !strings.Contains(body, "Katral - Mainframe Modernization chapter") {
 		t.Fatalf("expected UI HTML to contain title, got: %s", body)
 	}
 
@@ -1048,6 +1047,7 @@ func TestWorkflowStatusIncludesTargetConfig(t *testing.T) {
 
 	payload := map[string]interface{}{
 		"project_id":  "proj-123",
+		"mainframe":   sourceRepo,
 		"source_repo": sourceRepo,
 		"stacks":      []string{"Angular"},
 		"flow":        "code-conversion",
@@ -1122,15 +1122,15 @@ func TestWorkflowDownloadReturnsArtifact(t *testing.T) {
 	if err := os.MkdirAll(artifactRoot, 0o755); err != nil {
 		t.Fatalf("mkdir artifacts: %v", err)
 	}
-	artifactPath := filepath.Join(artifactRoot, "proj-download.zip")
+	artifactPath := filepath.Join(artifactRoot, "proj-download.json")
 	if err := os.WriteFile(artifactPath, []byte("example"), 0o644); err != nil {
 		t.Fatalf("write artifact: %v", err)
 	}
-	docArtifactPath := filepath.Join(artifactRoot, "proj-download-doc.zip")
+	docArtifactPath := filepath.Join(artifactRoot, "proj-download-doc.json")
 	if err := os.WriteFile(docArtifactPath, []byte("doc"), 0o644); err != nil {
 		t.Fatalf("write doc artifact: %v", err)
 	}
-	convArtifactPath := filepath.Join(artifactRoot, "proj-download-conv.zip")
+	convArtifactPath := filepath.Join(artifactRoot, "proj-download-conv.json")
 	if err := os.WriteFile(convArtifactPath, []byte("conv"), 0o644); err != nil {
 		t.Fatalf("write conversion artifact: %v", err)
 	}
@@ -1141,7 +1141,8 @@ func TestWorkflowDownloadReturnsArtifact(t *testing.T) {
 	}
 	history := map[string]workflow.State{
 		"proj-download": {
-			Status: "completed",
+			Status:         "completed",
+			SpringArtifact: artifactPath,
 			ConversionArtifacts: map[string]string{
 				"conversion_source":  artifactPath,
 				"conversion_summary": convArtifactPath,
@@ -1175,11 +1176,11 @@ func TestWorkflowDownloadReturnsArtifact(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", rr.Code, rr.Body.String())
 	}
-	if ct := rr.Header().Get("Content-Type"); ct != "application/zip" {
-		t.Fatalf("expected content-type application/zip, got %q", ct)
+	if ct := rr.Header().Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("expected content-type application/json, got %q", ct)
 	}
 	disposition := rr.Header().Get("Content-Disposition")
-	if !strings.Contains(disposition, "proj-download.zip") {
+	if !strings.Contains(disposition, "proj-download.json") {
 		t.Fatalf("expected disposition to include filename, got %q", disposition)
 	}
 	if rr.Body.Len() == 0 {
@@ -1192,10 +1193,10 @@ func TestWorkflowDownloadReturnsArtifact(t *testing.T) {
 	if docRR.Code != http.StatusOK {
 		t.Fatalf("expected 200 for documentation artifact, got %d: %s", docRR.Code, docRR.Body.String())
 	}
-	if ct := docRR.Header().Get("Content-Type"); ct != "application/zip" {
-		t.Fatalf("expected content-type application/zip for documentation artifact, got %q", ct)
+	if ct := docRR.Header().Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("expected content-type application/json for documentation artifact, got %q", ct)
 	}
-	if !strings.Contains(docRR.Header().Get("Content-Disposition"), "proj-download-doc.zip") {
+	if !strings.Contains(docRR.Header().Get("Content-Disposition"), "proj-download-doc.json") {
 		t.Fatalf("expected documentation filename in content disposition, got %q", docRR.Header().Get("Content-Disposition"))
 	}
 	if docRR.Body.Len() == 0 {
@@ -1208,10 +1209,10 @@ func TestWorkflowDownloadReturnsArtifact(t *testing.T) {
 	if convRR.Code != http.StatusOK {
 		t.Fatalf("expected 200 for conversion artifact, got %d: %s", convRR.Code, convRR.Body.String())
 	}
-	if ct := convRR.Header().Get("Content-Type"); ct != "application/zip" {
-		t.Fatalf("expected content-type application/zip for conversion artifact, got %q", ct)
+	if ct := convRR.Header().Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("expected content-type application/json for conversion artifact, got %q", ct)
 	}
-	if !strings.Contains(convRR.Header().Get("Content-Disposition"), "proj-download-conv.zip") {
+	if !strings.Contains(convRR.Header().Get("Content-Disposition"), "proj-download-conv.json") {
 		t.Fatalf("expected conversion filename in content disposition, got %q", convRR.Header().Get("Content-Disposition"))
 	}
 	if convRR.Body.Len() == 0 {
@@ -1221,8 +1222,11 @@ func TestWorkflowDownloadReturnsArtifact(t *testing.T) {
 	noArtifactReq := httptest.NewRequest(http.MethodGet, "/v1/workflow/download?project_id=proj-download", nil)
 	noArtifactRR := httptest.NewRecorder()
 	srv.handleWorkflowDownload(noArtifactRR, noArtifactReq)
-	if noArtifactRR.Code != http.StatusBadRequest {
-		t.Fatalf("expected 400 when artifact query is missing, got %d", noArtifactRR.Code)
+	if noArtifactRR.Code != http.StatusOK {
+		t.Fatalf("expected 200 when artifact query is missing, got %d", noArtifactRR.Code)
+	}
+	if ct := noArtifactRR.Header().Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("expected spring artifact content-type application/json, got %q", ct)
 	}
 
 	missingReq := httptest.NewRequest(http.MethodGet, "/v1/workflow/download?project_id=unknown&artifact=conversion_source", nil)
@@ -1239,12 +1243,7 @@ func TestConsolidatedDocHandler(t *testing.T) {
 	if err := os.MkdirAll(artifactRoot, 0o755); err != nil {
 		t.Fatalf("mkdir artifacts: %v", err)
 	}
-	artifactPath := filepath.Join(artifactRoot, "proj-consolidated.zip")
-	file, err := os.Create(artifactPath)
-	if err != nil {
-		t.Fatalf("create artifact: %v", err)
-	}
-	writer := zip.NewWriter(file)
+	artifactPath := filepath.Join(artifactRoot, "proj-consolidated.json")
 	manifest := workflow.ConsolidatedDoc{
 		ProjectID:     "proj-consolidated",
 		GeneratedAt:   time.Date(2024, time.January, 2, 15, 4, 5, 0, time.UTC),
@@ -1258,29 +1257,18 @@ func TestConsolidatedDocHandler(t *testing.T) {
 			Summary: "Summary",
 		}},
 	}
-	manifestPayload, err := json.Marshal(manifest)
+	payload := map[string]interface{}{
+		"project_id":   manifest.ProjectID,
+		"generated_at": manifest.GeneratedAt,
+		"manifest":     manifest,
+		"markdown":     "# Overview\n",
+	}
+	data, err := json.Marshal(payload)
 	if err != nil {
-		t.Fatalf("marshal manifest: %v", err)
+		t.Fatalf("marshal consolidated artifact: %v", err)
 	}
-	manifestWriter, err := writer.Create("manifest.json")
-	if err != nil {
-		t.Fatalf("create manifest entry: %v", err)
-	}
-	if _, err := manifestWriter.Write(manifestPayload); err != nil {
-		t.Fatalf("write manifest: %v", err)
-	}
-	docWriter, err := writer.Create("documentation.md")
-	if err != nil {
-		t.Fatalf("create markdown entry: %v", err)
-	}
-	if _, err := docWriter.Write([]byte("# Overview\n")); err != nil {
-		t.Fatalf("write markdown: %v", err)
-	}
-	if err := writer.Close(); err != nil {
-		t.Fatalf("close archive: %v", err)
-	}
-	if err := file.Close(); err != nil {
-		t.Fatalf("close artifact: %v", err)
+	if err := os.WriteFile(artifactPath, data, 0o644); err != nil {
+		t.Fatalf("write consolidated artifact: %v", err)
 	}
 
 	historyPath := filepath.Join(store.Root(), "projects_history.json")
@@ -1345,8 +1333,8 @@ func TestConsolidatedDocHandler(t *testing.T) {
 	if downloadRR.Code != http.StatusOK {
 		t.Fatalf("expected 200 for download, got %d: %s", downloadRR.Code, downloadRR.Body.String())
 	}
-	if ct := downloadRR.Header().Get("Content-Type"); ct != "application/zip" {
-		t.Fatalf("expected zip content-type, got %q", ct)
+	if ct := downloadRR.Header().Get("Content-Type"); ct != "application/json" {
+		t.Fatalf("expected json content-type, got %q", ct)
 	}
 	if !strings.Contains(downloadRR.Header().Get("Content-Disposition"), filepath.Base(artifactPath)) {
 		t.Fatalf("expected filename in disposition, got %q", downloadRR.Header().Get("Content-Disposition"))
@@ -1370,41 +1358,28 @@ func TestWorkflowDocumentationEndpoint(t *testing.T) {
 		t.Fatalf("mkdir artifacts: %v", err)
 	}
 
-	docPath := filepath.Join(artifactRoot, "proj-documents.zip")
-	file, err := os.Create(docPath)
-	if err != nil {
-		t.Fatalf("create artifact: %v", err)
-	}
-	writer := zip.NewWriter(file)
-	entry, err := writer.Create("pgm/doc.json")
-	if err != nil {
-		t.Fatalf("create entry: %v", err)
-	}
-	payload, err := json.Marshal(kb.Doc{
+	docPath := filepath.Join(artifactRoot, "proj-documents.json")
+	doc := kb.Doc{
 		ID:      "PGM-1",
 		Program: "PGM1",
 		Type:    "documentation_summary",
 		Summary: "PGM1 summary",
 		Extra:   map[string]string{"documentation_markdown": "# Heading\nBody"},
-	})
+	}
+	artifactPayload := map[string]interface{}{
+		"project_id":     "proj-documents",
+		"artifact_type":  "documentation_summary",
+		"generated_at":   time.Now().UTC(),
+		"document_count": 1,
+		"document_ids":   []string{doc.ID},
+		"documents":      []kb.Doc{doc},
+	}
+	artifactData, err := json.Marshal(artifactPayload)
 	if err != nil {
-		t.Fatalf("marshal doc: %v", err)
+		t.Fatalf("marshal documentation artifact: %v", err)
 	}
-	if _, err := entry.Write(payload); err != nil {
-		t.Fatalf("write doc: %v", err)
-	}
-	manifest, err := writer.Create("manifest.json")
-	if err != nil {
-		t.Fatalf("create manifest: %v", err)
-	}
-	if _, err := manifest.Write([]byte(`{"document_count":1}`)); err != nil {
-		t.Fatalf("write manifest: %v", err)
-	}
-	if err := writer.Close(); err != nil {
-		t.Fatalf("close archive: %v", err)
-	}
-	if err := file.Close(); err != nil {
-		t.Fatalf("close file: %v", err)
+	if err := os.WriteFile(docPath, artifactData, 0o644); err != nil {
+		t.Fatalf("write documentation artifact: %v", err)
 	}
 
 	historyPath := filepath.Join(store.Root(), "projects_history.json")

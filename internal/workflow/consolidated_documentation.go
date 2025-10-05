@@ -2,7 +2,6 @@
 package workflow
 
 import (
-	"archive/zip"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -65,53 +64,30 @@ func (m *Manager) generateConsolidatedDocumentation(ctx context.Context, project
 	}
 	timestamp := time.Now().UTC().Format("20060102T150405Z")
 	safeProject := safeFileComponent(projectID)
-	artifactName := fmt.Sprintf("%s-consolidated-%s.zip", safeProject, timestamp)
+	artifactName := fmt.Sprintf("%s-consolidated-%s.json", safeProject, timestamp)
 	finalPath := filepath.Join(root, artifactName)
 	tempPath := finalPath + ".tmp"
 
-	file, err := os.OpenFile(tempPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+	markdown := strings.TrimSpace(renderConsolidatedMarkdown(consolidated))
+	payload := struct {
+		ProjectID   string          `json:"project_id"`
+		GeneratedAt time.Time       `json:"generated_at"`
+		Manifest    ConsolidatedDoc `json:"manifest"`
+		Markdown    string          `json:"markdown,omitempty"`
+	}{
+		ProjectID:   projectID,
+		GeneratedAt: time.Now().UTC(),
+		Manifest:    consolidated,
+	}
+	if markdown != "" {
+		payload.Markdown = markdown
+	}
+	data, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
-		return "", fmt.Errorf("create consolidated artifact: %w", err)
+		return "", fmt.Errorf("marshal consolidated artifact: %w", err)
 	}
-	zipWriter := zip.NewWriter(file)
-	cleanup := func() {
-		_ = zipWriter.Close()
-		_ = file.Close()
-		_ = os.Remove(tempPath)
-	}
-	manifestPayload, err := json.MarshalIndent(consolidated, "", "  ")
-	if err != nil {
-		cleanup()
-		return "", fmt.Errorf("marshal consolidated manifest: %w", err)
-	}
-	manifestWriter, err := zipWriter.Create("manifest.json")
-	if err != nil {
-		cleanup()
-		return "", fmt.Errorf("create consolidated manifest: %w", err)
-	}
-	if _, err := manifestWriter.Write(manifestPayload); err != nil {
-		cleanup()
-		return "", fmt.Errorf("write consolidated manifest: %w", err)
-	}
-	markdown := renderConsolidatedMarkdown(consolidated)
-	if strings.TrimSpace(markdown) != "" {
-		docWriter, err := zipWriter.Create("documentation.md")
-		if err != nil {
-			cleanup()
-			return "", fmt.Errorf("create consolidated markdown: %w", err)
-		}
-		if _, err := docWriter.Write([]byte(markdown)); err != nil {
-			cleanup()
-			return "", fmt.Errorf("write consolidated markdown: %w", err)
-		}
-	}
-	if err := zipWriter.Close(); err != nil {
-		cleanup()
-		return "", fmt.Errorf("finalize consolidated artifact: %w", err)
-	}
-	if err := file.Close(); err != nil {
-		cleanup()
-		return "", fmt.Errorf("close consolidated artifact: %w", err)
+	if err := os.WriteFile(tempPath, data, 0o644); err != nil {
+		return "", fmt.Errorf("write consolidated artifact: %w", err)
 	}
 	if err := os.Rename(tempPath, finalPath); err != nil {
 		_ = os.Remove(tempPath)

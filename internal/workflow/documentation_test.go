@@ -2,8 +2,8 @@
 package workflow
 
 import (
-	"archive/zip"
 	"context"
+	"encoding/json"
 	"os"
 	"strings"
 	"testing"
@@ -324,21 +324,25 @@ func TestSummarizeDocumentationGeneratesArtifactsIncrementally(t *testing.T) {
 		}
 	}
 
-	summaryArchive := artifacts["documentation_summary"]
-	reader, err := zip.OpenReader(summaryArchive)
+	summaryArtifact := artifacts["documentation_summary"]
+	data, err := os.ReadFile(summaryArtifact)
 	if err != nil {
-		t.Fatalf("open summary archive: %v", err)
+		t.Fatalf("read summary artifact: %v", err)
 	}
-	var manifestFound bool
-	for _, f := range reader.File {
-		if f.Name == "manifest.json" {
-			manifestFound = true
-			break
-		}
+	var payload struct {
+		ArtifactType  string   `json:"artifact_type"`
+		DocumentCount int      `json:"document_count"`
+		DocumentIDs   []string `json:"document_ids"`
+		Documents     []kb.Doc `json:"documents"`
 	}
-	_ = reader.Close()
-	if !manifestFound {
-		t.Fatalf("expected manifest.json in documentation summary archive")
+	if err := json.Unmarshal(data, &payload); err != nil {
+		t.Fatalf("decode summary artifact: %v", err)
+	}
+	if payload.ArtifactType != docTypeSummary {
+		t.Fatalf("expected summary artifact type %q, got %q", docTypeSummary, payload.ArtifactType)
+	}
+	if payload.DocumentCount == 0 || len(payload.Documents) == 0 {
+		t.Fatalf("expected summary artifact to include documents: %+v", payload)
 	}
 
 	// Second run should be incremental and skip builder invocation.

@@ -236,11 +236,15 @@ func (s *Server) handleWorkflowDownload(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	artifactKind := strings.TrimSpace(r.URL.Query().Get("artifact"))
+	if artifactKind == "" {
+		artifactKind = "spring"
+	}
 	var artifactPath string
 	var err error
-	if artifactKind == "" || strings.EqualFold(artifactKind, "spring") {
+	switch {
+	case strings.EqualFold(artifactKind, "spring"):
 		artifactPath, err = s.workflow.SpringArtifactPath(projectID)
-	} else {
+	default:
 		artifactPath, err = s.workflow.DocumentationArtifactPath(projectID, artifactKind)
 		if errors.Is(err, workflow.ErrArtifactNotFound) {
 			artifactPath, err = s.workflow.ConversionArtifactPath(projectID, artifactKind)
@@ -277,9 +281,24 @@ func (s *Server) handleWorkflowDownload(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	name := filepath.Base(artifactPath)
-	w.Header().Set("Content-Type", "application/zip")
+	w.Header().Set("Content-Type", detectContentType(name))
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", name))
 	http.ServeContent(w, r, name, info.ModTime(), file)
+}
+
+func detectContentType(name string) string {
+	switch strings.ToLower(filepath.Ext(strings.TrimSpace(name))) {
+	case ".md":
+		return "text/markdown"
+	case ".html", ".htm":
+		return "text/html"
+	case ".json":
+		return "application/json"
+	case ".txt":
+		return "text/plain"
+	default:
+		return "application/octet-stream"
+	}
 }
 
 func (s *Server) handleLogs(w http.ResponseWriter, r *http.Request) {
