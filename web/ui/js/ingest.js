@@ -516,24 +516,57 @@ export function initIngest() {
   }
 }
 
+function normalizeFlowValue(flow) {
+  return typeof flow === 'string' && flow.trim() ? flow.trim() : '';
+}
+
+function renderSelectedFlow(flow) {
+  const normalized = normalizeFlowValue(flow);
+  let matchedCard = null;
+
+  selectionCards.forEach(card => {
+    const optionValue = normalizeFlowValue(card.dataset.option);
+    const isMatch = normalized && optionValue === normalized;
+    card.classList.toggle('selected', isMatch);
+    card.setAttribute('aria-pressed', isMatch ? 'true' : 'false');
+    if (isMatch) {
+      matchedCard = card;
+    }
+  });
+
+  document.body.dataset.selectedFlow = normalized;
+
+  if (!flowSummaryEl) {
+    return;
+  }
+
+  if (matchedCard) {
+    const title = matchedCard.querySelector('h3')?.textContent?.trim() || normalized;
+    const summaryRaw = matchedCard.dataset.summary || '';
+    const summary = summaryRaw.trim();
+    flowSummaryEl.innerHTML = `<strong>${title}</strong>${summary ? ` &ndash; ${summary}` : ''}`;
+    flowSummaryEl.hidden = false;
+  } else {
+    flowSummaryEl.innerHTML = '';
+    flowSummaryEl.hidden = true;
+  }
+}
+
+function applyFlowSelection(flow) {
+  renderSelectedFlow(flow);
+  updateIngestView(flow);
+  updateDocumentationView(flow);
+}
+
 function bindFlowSelection() {
   selectionCards.forEach(card => {
     card.addEventListener('click', () => {
-      selectionCards.forEach(c => c.classList.remove('selected'));
-      card.classList.add('selected');
-      const flow = card.dataset.option || null;
-      setSelectedFlow(flow);
-      document.body.dataset.selectedFlow = flow || '';
-      if (flowSummaryEl) {
-        const title = card.querySelector('h3')?.textContent || flow;
-        const summary = card.dataset.summary || '';
-        flowSummaryEl.innerHTML = `<strong>${title}</strong>${summary ? ` &ndash; ${summary}` : ''}`;
-        flowSummaryEl.hidden = false;
-      }
-      updateIngestView(flow);
-      updateDocumentationView(flow);
+      const optionValue = normalizeFlowValue(card.dataset.option);
+      const flow = optionValue || null;
+      applyFlowSelection(flow);
+      const appliedFlow = setSelectedFlow(flow);
       markStepComplete(1);
-      if (hasTargetConfiguration(flow)) {
+      if (hasTargetConfiguration(appliedFlow)) {
         activatePanel('chat');
       } else {
         activatePanel('ingest');
@@ -542,19 +575,10 @@ function bindFlowSelection() {
   });
 
   onFlowChange(flow => {
-    document.body.dataset.selectedFlow = flow || '';
-    updateIngestView(flow);
-    updateDocumentationView(flow);
+    applyFlowSelection(flow);
   });
 
-  const activeFlow = getSelectedFlow();
-  if (activeFlow) {
-    const activeCard = selectionCards.find(card => card.dataset.option === activeFlow);
-    if (activeCard) {
-      activeCard.classList.add('selected');
-      document.body.dataset.selectedFlow = activeFlow;
-    }
-  }
+  applyFlowSelection(getSelectedFlow());
 }
 
 function bindKnowledgeInputs() {
