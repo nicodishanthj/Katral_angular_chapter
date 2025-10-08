@@ -1705,9 +1705,10 @@ async function uploadQueuedFiles() {
   syncKnowledgeConfig();
   uploadInFlight = true;
   setUploadControlsDisabled(true);
-  updateUploadProgress(0, queuedIngestFiles.length);
+  const totalFiles = queuedIngestFiles.length;
+  updateUploadProgress(0, totalFiles);
   if (ingestUploadStatusEl) {
-    ingestUploadStatusEl.textContent = `Uploading ${queuedIngestFiles.length} file${queuedIngestFiles.length === 1 ? '' : 's'}…`;
+    ingestUploadStatusEl.textContent = `Uploading ${totalFiles} file${totalFiles === 1 ? '' : 's'}…`;
   }
   const trimmedRepoPath = (flowConfig.knowledge.repo || '').trim();
   const activeProjectId = getProjectIdentifier();
@@ -1723,54 +1724,62 @@ async function uploadQueuedFiles() {
   }
   setProjectIdentifier(activeProjectId);
 
+  let uploadError = null;
   let lastIngestResponse = null;
-  for (let index = 0; index < queuedIngestFiles.length; index += 1) {
-    const fileEntry = queuedIngestFiles[index];
+  const formData = new FormData();
+  queuedIngestFiles.forEach(fileEntry => {
     const { file, relativePath } = fileEntry;
-    const uploadName = getFileDisplayName(fileEntry) || file.name;
-    const formData = new FormData();
-    formData.append('files', file, relativePath || file.name);
-    if (flowConfig.knowledge.collection) {
-      formData.append('collection', flowConfig.knowledge.collection);
-    }
-    if (trimmedRepoPath) {
-      formData.append('repo', flowConfig.knowledge.repo);
-    }
-    if (activeProjectId) {
-      formData.append('project_id', activeProjectId);
-    }
-    if (ingestUploadStatusEl) {
-      ingestUploadStatusEl.textContent = `Uploading ${uploadName} (${index + 1} of ${queuedIngestFiles.length})…`;
-    }
-    try {
-      const response = await fetch('/v1/ingest/upload', {
-        method: 'POST',
-        body: formData
-      });
-      let payload = null;
-      try {
-        payload = await response.clone().json();
-      } catch (parseErr) {
-        payload = null;
-      }
-      if (!response.ok) {
-        const message = payload && payload.error ? payload.error : response.statusText;
-        throw new Error(message || 'Upload failed');
-      }
-      lastIngestResponse = payload;
-    } catch (err) {
-      if (ingestUploadStatusEl) {
-        ingestUploadStatusEl.textContent = `Error uploading ${uploadName}: ${err.message}`;
-      }
-      updateUploadProgress(index, queuedIngestFiles.length);
-      uploadInFlight = false;
-      setUploadControlsDisabled(false);
-      return;
-    }
-    updateUploadProgress(index + 1, queuedIngestFiles.length);
+    const uploadName = relativePath || getFileDisplayName(fileEntry) || file.name;
+    formData.append('files', file, uploadName || file.name);
+  });
+  if (flowConfig.knowledge.collection) {
+    formData.append('collection', flowConfig.knowledge.collection);
   }
+  if (trimmedRepoPath) {
+    formData.append('repo', flowConfig.knowledge.repo);
+  }
+  if (activeProjectId) {
+    formData.append('project_id', activeProjectId);
+  }
+  try {
+    const response = await fetch('/v1/ingest/upload', {
+      method: 'POST',
+      body: formData
+    });
+    let payload = null;
+    try {
+      payload = await response.clone().json();
+    } catch (parseErr) {
+      payload = null;
+    }
+    if (!response.ok) {
+      const message = payload && payload.error ? payload.error : response.statusText;
+      throw new Error(message || 'Upload failed');
+    }
+    lastIngestResponse = payload;
+  } catch (err) {
+    uploadError = err;
+    if (ingestUploadStatusEl) {
+      ingestUploadStatusEl.textContent = `Upload failed: ${err.message}`;
+    }
+  } finally {
+    uploadInFlight = false;
+    setUploadControlsDisabled(false);
+  }
+  if (uploadError) {
+    resetUploadProgress();
+    return;
+  }
+  updateUploadProgress(totalFiles, totalFiles);
   if (ingestUploadStatusEl) {
-    ingestUploadStatusEl.textContent = `Upload complete. ${queuedIngestFiles.length} file${queuedIngestFiles.length === 1 ? '' : 's'} uploaded successfully.`;
+    let statusText = `Upload complete. ${totalFiles} file${totalFiles === 1 ? '' : 's'} uploaded successfully.`;
+    if (lastIngestResponse && typeof lastIngestResponse.documents === 'number') {
+      statusText += ` Indexed ${lastIngestResponse.documents} documents.`;
+    }
+    if (lastIngestResponse && lastIngestResponse.warning) {
+      statusText += ` Warning: ${lastIngestResponse.warning}`;
+    }
+    ingestUploadStatusEl.textContent = statusText;
   }
   if (lastIngestResponse && lastIngestResponse.collection) {
     flowConfig.knowledge.collection = lastIngestResponse.collection;
@@ -1783,7 +1792,7 @@ async function uploadQueuedFiles() {
   }
   queuedIngestFiles = [];
   renderQueuedFiles();
-  setUploadControlsDisabled(false);
   resetUploadProgress();
-  uploadInFlight = false;
+  markStepComplete(2);
+  activatePanel('docs', { allowLocked: true });
 }
