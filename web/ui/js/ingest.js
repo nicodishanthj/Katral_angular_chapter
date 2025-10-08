@@ -105,6 +105,32 @@ const angularKnowledgePreset = {
   useStackBadges: true
 };
 
+const angularTargetPreset = {
+  languageOptions: [
+    { value: 'typescript-5', label: 'TypeScript 5.x', selected: true },
+    { value: 'typescript-4-9', label: 'TypeScript 4.9' },
+    { value: 'typescript-4-8', label: 'TypeScript 4.8' }
+  ],
+  versionOptions: [
+    { value: 'angular-17', label: 'Angular v17', selected: true },
+    { value: 'angular-16', label: 'Angular v16' },
+    { value: 'angular-15', label: 'Angular v15' },
+    { value: 'angular-legacy', label: 'Angular v14 or earlier' }
+  ],
+  frameworkOptions: [
+    { value: 'angular-standalone', label: 'Standalone Components', selected: true },
+    { value: 'angular-ngmodule', label: 'NgModule Architecture' },
+    { value: 'angular-hybrid', label: 'Hybrid (Standalone + NgModule)' },
+    { value: 'angular-nx', label: 'Nx Monorepo Workspace' }
+  ],
+  runtimeOptions: [
+    { value: 'angular-cli', label: 'Angular CLI', selected: true },
+    { value: 'node-18', label: 'Node.js 18 LTS' },
+    { value: 'cloud-run', label: 'Google Cloud Run' },
+    { value: 'docker', label: 'Docker Container' }
+  ]
+};
+
 const reactTargetPreset = {
   languageOptions: [
     { value: 'typescript-5', label: 'TypeScript 5.x', selected: true },
@@ -181,7 +207,8 @@ const projectConfigPresets = {
     target: reactTargetPreset
   },
   'angular-modernization': {
-    knowledge: angularKnowledgePreset
+    knowledge: angularKnowledgePreset,
+    target: angularTargetPreset
   },
   'angular-react-migration': {
     knowledge: angularKnowledgePreset,
