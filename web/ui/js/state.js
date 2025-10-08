@@ -1,9 +1,10 @@
 const knowledgeFlows = new Set(['knowledge-base', 'chat-with-code', 'doc-generation', 'code-conversion']);
-const modernizationFlows = new Set(['code-conversion']);
+const modernizationFlows = new Set(['code-conversion', 'angular-modernization']);
 const angularMigrationFlows = new Set(['angular-react-migration']);
 
 const targetPresetFactories = new Map([
   ['code-conversion', () => flowConfig.modernization],
+  ['angular-modernization', () => flowConfig.modernization],
   ['angular-react-migration', () => migrationConfig.target]
 ]);
 
